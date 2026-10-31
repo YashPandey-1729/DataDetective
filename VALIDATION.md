@@ -1,5 +1,12 @@
 # Validation record
 
+## User-controlled investigation cancellation — 2026-10-31
+
+- Added an idempotent cancellation API and a Stop investigation button for queued/running work. Cancellation stops future steps, retains completed evidence and generates a computed partial report when analytical results exist, with no additional model request. Pre-analysis cancellation has no fabricated report. Already-finished outcomes remain intact.
+- Job cleanup handles cancellation before the coroutine starts, releases capacity and preserves existing shutdown behavior. Interrupted timeline events stop showing as running. Frontend progress updates cannot revive a cancelled run or restore an investigation after reset/replacement.
+- Full backend suite: **312 passed**, one existing Starlette TestClient deprecation warning, **14.86 seconds**. Frontend suite: **22 passed**. TypeScript and production build passed with the existing Plotly chunk-size warning. Coverage includes running and pre-start cancellation, real computed measurements and Markdown export, repeated cancellation, finished-job races, registry cleanup, controlled API errors and stale polling responses. No live AI calls or model downloads were used.
+- Cancellation cannot undo an already-submitted provider request or forcibly terminate a calculation already executing in a worker thread; existing tool limits still apply.
+
 ## Partial-result recovery guidance — 2026-10-31
 
 - Replaced the generic resource-limit banner with the actual stop reason and a suggested next step for repeated actions, step exhaustion, tool failures, model unavailability, and interruption. Partial results remain explicitly incomplete; missing or unknown reasons receive generic guidance. Active, successful and failed investigations do not receive this partial-result notice.

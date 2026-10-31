@@ -23,6 +23,7 @@ from backend.agent.tool_contracts import validate_tool_arguments
 
 load_dotenv(Path(__file__).resolve().parents[1] / '.env')
 tasks=set()
+investigation_jobs={}
 statistics_gate=asyncio.Semaphore(2)
 
 
@@ -33,6 +34,7 @@ async def lifespan(app):
     for task in pending: task.cancel()
     await asyncio.gather(*pending,return_exceptions=True)
     tasks.clear()
+    investigation_jobs.clear()
 
 
 app=FastAPI(title='DataDetective AI',version='1.1.0',lifespan=lifespan)
@@ -146,7 +148,16 @@ async def investigate(request:InvestigationRequest):
             raise HTTPException(503,'Set GEMINI_API_KEY in the root .env and restart the backend, or select local Gemma or Offline analytics.')
     if len(tasks)>=4 or len(sessions.investigations)>=40: raise HTTPException(429,'Investigation capacity reached. Wait for active work to finish or sessions to expire.')
     state=sessions.create_investigation(request)
-    task=asyncio.create_task(InvestigationAgent(state).run());tasks.add(task);task.add_done_callback(tasks.discard)
+    agent=InvestigationAgent(state)
+    task=asyncio.create_task(agent.run())
+    tasks.add(task)
+    investigation_jobs[state['id']]=(task,agent)
+    def finished(completed):
+        tasks.discard(completed)
+        investigation_jobs.pop(state['id'],None)
+        # Cancellation before the coroutine's first turn never reaches run().
+        if completed.cancelled(): agent.mark_cancelled()
+    task.add_done_callback(finished)
     return state
 
 
@@ -156,6 +167,20 @@ async def investigation(id:str):
     if id not in sessions.investigations: raise HTTPException(404,'Investigation not found or expired.')
     sessions.investigations[id]['accessed']=time.time()
     return sessions.investigations[id]
+
+
+@app.post('/api/investigations/{id}/cancel',response_model=InvestigationResponse)
+async def cancel_investigation(id:str):
+    state=await investigation(id)
+    if state['status'] not in {'queued','running'}:
+        return state
+    job=investigation_jobs.get(id)
+    if not job or job[0].done():
+        raise HTTPException(409,'This investigation has no active job. Refresh its progress before retrying.')
+    task,agent=job
+    agent.mark_cancelled(user_requested=True)
+    task.cancel()
+    return state
 
 
 @app.get('/api/investigations/{id}/report',response_class=PlainTextResponse)

@@ -129,6 +129,8 @@ Default budget: eight model-selected steps (configurable 2–12), plus initial v
 
 SQL evidence has at most 200 rows. Planner context bounds cell text, rows, and total prompt size; truncation is disclosed. Full retained evidence is inspectable in the UI. Charts use the retained tool result rather than regenerated model data.
 
+While an investigation is queued or running, **Stop investigation** replaces the start button. Stopping cancels the backend job and prevents further analytical/model steps. Completed evidence remains visible; when analytical results exist, a computed partial report can be exported without another model request. Stopping before any analysis returns `cancelled` with no invented report. An already-finished investigation is left intact. An in-flight provider request may still be processed or billed, and a calculation already running in a worker thread may finish under its existing limits.
+
 **Verification scope:** model reports provide typed measurements (`evidence_id`, `row`, `field`, `value`). The server resolves every displayed report number against an actual SQL/statistical cell, attaches source-row labels, and rejects mismatched values. Digits in model numerical prose are withheld in favor of computed measurements. Numeric-free prose is still interpretation and may be wrong. Values supplied by the model to the percentage-change helper cannot become dataset-backed findings. Numerical verification re-executes source SQL and matches the result row by its other fields, rather than assuming stable row order. Ambiguous matches remain inconclusive. The ledger stores SQL, source ID, cell, expected/actual values, and status. This verifies consistency of that cell only. Segment contributions are not proven causes, and SQL metric definitions still need review.
 
 ## Multimodal behavior
@@ -183,6 +185,7 @@ Keep the REST contracts stable between developers; backend changes need not alte
 | `POST /api/images` | Multipart `file`; returns image ID; interpretation happens during investigation |
 | `POST /api/investigations` | JSON `dataset_id`, `question`, optional `image_id`, optional `model` (ID from `/api/health`), `mode` (`agent` / `offline`); returns 202 and state |
 | `GET /api/investigations/{id}` | Poll status, plan, timeline, evidence, findings, charts, report and errors |
+| `POST /api/investigations/{id}/cancel` | Stop queued/running work, retain completed evidence, and return the final cancellation/partial state; safe to repeat |
 | `GET /api/investigations/{id}/report` | Download a Markdown report with evidence appendix |
 
 ## Two-minute demo

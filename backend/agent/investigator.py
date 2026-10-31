@@ -364,14 +364,32 @@ class InvestigationAgent:
         s['stop_reason']='offline_complete'
         finalize_report(s,draft)
 
+    def mark_cancelled(self, user_requested=False):
+        if self.state['status'] not in {'queued','running'}:
+            return
+        self.state['stop_reason']='user_cancelled' if user_requested else 'cancelled'
+        message='Investigation stopped by the user.' if user_requested else 'Investigation was cancelled during server shutdown.'
+        self.state['errors'].append(message)
+        for item in self.state['events']:
+            if item['status']=='running':
+                item.update(status='skipped',error=message)
+        self.state['status']='failed'
+        if user_requested:
+            self.state['status']='partial' if self.analytical_evidence() else 'cancelled'
+            if self.analytical_evidence():
+                try:
+                    draft=self.fallback_report()
+                    draft['limitations'].append('The user stopped the investigation; requested analyses may be incomplete.')
+                    finalize_report(self.state,draft)
+                except Exception:
+                    self.state['errors'].append('A partial report could not be generated. Completed evidence remains available.')
+        event(self.state,'investigation',message,'skipped' if user_requested else 'failed')
+
     async def run(self):
         try:
             await self._run()
         except asyncio.CancelledError:
-            self.state['status']='failed'
-            self.state['stop_reason']='cancelled'
-            self.state['errors'].append('Investigation was cancelled during server shutdown.')
-            event(self.state,'investigation','Investigation cancelled. Retry after the server restarts.','failed')
+            self.mark_cancelled()
             raise
 
     async def _run(self):

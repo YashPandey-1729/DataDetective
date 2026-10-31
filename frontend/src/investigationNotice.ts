@@ -3,7 +3,7 @@ import type {Investigation} from './types';
 interface InvestigationNotice {reason: string; nextStep: string}
 
 export function investigationNotice(investigation: Pick<Investigation,'status'|'stop_reason'> | null): InvestigationNotice | null {
-  if (investigation?.status !== 'partial') return null;
+  if (!investigation || !['partial','cancelled'].includes(investigation.status)) return null;
   switch (investigation.stop_reason) {
     case 'repeated_action_limit':
       return {reason:'The AI repeated analyses that had already succeeded.',
@@ -20,6 +20,9 @@ export function investigationNotice(investigation: Pick<Investigation,'status'|'
     case 'cancelled':
       return {reason:'The investigation was interrupted.',
         nextStep:'Check the backend connection before starting a new investigation.'};
+    case 'user_cancelled':
+      return {reason:'You stopped this investigation.',
+        nextStep:'Completed evidence is retained. Refine your question or start a new investigation when ready.'};
     default:
       return {reason:'The investigation stopped before completing.',
         nextStep:'Review the report limitations and Execution notices below before starting a new investigation.'};
