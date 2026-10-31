@@ -1,5 +1,11 @@
 # Validation record
 
+## Repeated analytical action guard — 2026-10-31
+
+- Identical successful SQL/statistics requests reuse their existing evidence instead of executing again. Skips are visible in the timeline and sent back to the planner with the evidence ID. Failed actions remain retryable; SQL text is matched exactly so differences inside string literals remain meaningful.
+- Two duplicate requests stop exploration with `partial / repeated_action_limit`, preserving evidence and report generation. The existing model-call budget remains unchanged; no additional AI calls are introduced.
+- Full backend regression suite: **304 passed**, one existing Starlette TestClient deprecation warning, **35.30 seconds**. Six new cases cover cloud/local planner recovery, early stopping, retries after failure, exact SQL literals, parameter key ordering, and retained SQL verification. Planner responses are controlled; no live AI quality claim is made.
+
 ## No-download completion pass — 2026-10-31
 
 - Stopped the in-progress Gemma pull and the Ollama service at the user's request. No subsequent package or model downloads were started. The portable runtime is present, but the model download remains partial and is not reported as installed. Partial files are preserved in the ignored runtime directory.

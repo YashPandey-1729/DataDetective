@@ -219,6 +219,7 @@ class InvestigationAgent:
         try: budget=max(2,min(int(os.getenv('MAX_AGENT_STEPS','8')),12))
         except ValueError: budget=8
         model_failures=0; tool_failures=0
+        completed_actions={}; repeated_actions=0
         self.state['stop_reason']='step_budget_exhausted'
         for step in range(budget):
             try:
@@ -242,12 +243,29 @@ class InvestigationAgent:
                     continue
                 self.state['stop_reason']='sufficient_evidence'
                 break
+            # Match exact tool inputs, never explanations or reformatted SQL:
+            # whitespace inside a SQL literal can change the requested analysis.
+            action_key=json.dumps([action.tool,action.args.model_dump(exclude_none=True)],sort_keys=True) if action.tool in {'execute_sql','calculate_statistics'} else None
+            previous=completed_actions.get(action_key)
+            if previous:
+                message=f"Repeated analytical action skipped; reuse {previous['id']} and choose a different calculation or finish if completion requirements are met."
+                item=event(self.state,action.tool,message,'skipped')
+                item.update(input=action.args.model_dump(exclude_none=True),evidence_id=previous['id'],reused_evidence=True)
+                self.state['errors'].append(message)
+                repeated_actions+=1
+                if repeated_actions>=2:
+                    self.state['stop_reason']='repeated_action_limit'
+                    self.state['errors'].append('Exploration stopped after two repeated analytical requests. Available evidence is retained; narrow the question and start a new investigation to continue.')
+                    break
+                continue
             result=await self.execute(action)
             if 'error' in result:
                 tool_failures+=1
                 if tool_failures>=3:
                     self.state['stop_reason']='tool_failure_limit'
                     break
+            elif action_key is not None:
+                completed_actions[action_key]=result
         if not self.analytical_evidence():
             raise RuntimeError('No analytical tools completed successfully. Check model access and retry, or use offline analytics.')
         await self.ensure_artifacts()

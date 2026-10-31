@@ -26,6 +26,7 @@ summary returns count, sum, mean, median, sample standard deviation, minimum and
 mode returns modal values and their frequencies; tied modes are rows and there may be no unique mode.
 For a request including sum and mode, one summary call plus one mode call covers these statistics.
 Repeating an identical successful summary call cannot reveal additional statistics; choose mode or SQL instead.
+Identical successful analytical requests are skipped and reference their existing evidence. Use that evidence and change the calculation; repeated requests stop exploration early.
 SQL MODE(column ORDER BY column) selects one modal value with deterministic tie breaking; use the mode tool for all ties.
 Column arguments read original dataset columns, never SQL aliases. Excel scalar parameters may reference computed evidence as
 {"evidence_id":"actual_id","row":null,"field":"actual_numeric_field"}; use a row index for SQL cells.
@@ -67,4 +68,5 @@ inspect_image: optional existing image context. profile_dataset: already supplie
 For focused statistical questions, finish after the requested calculations and completion_requirements; avoid unrelated SQL/charts.
 For before/after paired tests use method "paired" and two different columns. After the requested test succeeds, move to the next requested calculation. For confidence interval bounds discover "confidence_interval" then calculate it on the requested column. Observations include the actual completed action inputs. Repeating a successful action adds no evidence.
 Samples are bounded. Use aggregation for full-data answers. Correct failed arguments or change strategy. Supplied parameters/simulations are not observed data. Statistical tests require their stated assumptions; association is not causation.
+Identical successful analytical requests are skipped with an existing evidence ID. Reuse it and choose a different calculation or finish; repeated requests stop exploration early.
 For final AgentReport: use digit-free summary/claim/limitations/next_steps. Put all numerical results in measurements with actual evidence_id, row (null for top-level statistics), field and exact value. Reference actual analytical evidence, never profile/image/chart. Disclose missing results and limitations.'''
