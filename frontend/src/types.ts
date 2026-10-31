@@ -1,0 +1,8 @@
+export type Row = Record<string, string | number | null>;
+export interface Column {name: string; dtype: string; kind: string; missing: number; unique: number; summary?: Record<string, number | null>}
+export interface Dataset {id: string; name: string; profile: {rows: number; column_count: number; missing: number; duplicates: number; columns: Column[]; preview: Row[]; metrics: string[]; dimensions: string[]; dates: string[]}}
+export interface Evidence {id: string; tool: string; result: Record<string, unknown> & {rows?: Row[]; sql?: string; status?: string; count?: number; field?: string; actual?: number; evidence_id?: string}}
+export interface Measurement {evidence_id: string; row: number | null; field: string; value: number; context: Record<string, unknown>; verification: 'verified' | 'computed'}
+export interface Finding {claim: string; evidence_ids: string[]; kind: string; status: string; measurements?: Measurement[]}
+export interface Chart {title: string; data: Plotly.Data[]; layout: Partial<Plotly.Layout>; evidence_id: string; truncated?: boolean}
+export interface Investigation {id: string; question: string; mode: string; status: string; stop_reason?: string | null; plan: string[]; events: {id: number; tool: string; description: string; status: string; evidence_id?: string; error?: string; time: string}[]; evidence: Evidence[]; findings: Finding[]; charts: Chart[]; errors: string[]; image_context: Record<string, unknown> | null; report: {summary: string; findings: Finding[]; limitations: string[]; next_steps: string[]; verified_cells: number; generation?: 'model' | 'computed'; warnings?: string[]} | null}

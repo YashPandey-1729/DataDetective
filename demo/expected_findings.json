@@ -1,0 +1,61 @@
+{
+  "synthetic": true,
+  "seed": 42,
+  "rows": 5292,
+  "monthly_revenue": {
+    "2026-01": 633633.45,
+    "2026-02": 528492.33,
+    "2026-03": 617340.52,
+    "2026-04": 655072.01
+  },
+  "february_delta": -105141.12,
+  "february_pct_change": -16.59336640134765,
+  "regional_comparison": [
+    {
+      "Region": "East",
+      "January": 153458.02,
+      "February": 153419.74,
+      "delta": -38.28
+    },
+    {
+      "Region": "North",
+      "January": 152612.3,
+      "February": 160249.47,
+      "delta": 7637.17
+    },
+    {
+      "Region": "South",
+      "January": 164556.25,
+      "February": 147612.3,
+      "delta": -16943.95
+    },
+    {
+      "Region": "West",
+      "January": 163006.88,
+      "February": 67210.82,
+      "delta": -95796.06
+    }
+  ],
+  "west_category_comparison": [
+    {
+      "Category": "Electronics",
+      "January": 123916.4,
+      "February": 30690.65,
+      "delta": -93225.75
+    },
+    {
+      "Category": "Home",
+      "January": 27388.74,
+      "February": 24105.92,
+      "delta": -3282.82
+    },
+    {
+      "Category": "Lifestyle",
+      "January": 11701.74,
+      "February": 12414.25,
+      "delta": 712.51
+    }
+  ],
+  "generator_context": "West Electronics transaction frequency was reduced in February. The dataset alone shows contributions, not a proven causal supply constraint.",
+  "period_caveat": "Synthetic months each contain days 1\u201328 only; equal windows, not complete calendar months."
+}

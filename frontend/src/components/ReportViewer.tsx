@@ -1,0 +1,7 @@
+import {Download, ShieldCheck, ArrowUpRight} from 'lucide-react';
+import type {Investigation} from '../types';
+export default function ReportViewer({investigation}: {investigation: Investigation}) {
+  const report = investigation.report;
+  if (!report) return null;
+  return <section className="panel report-panel" id="report"><div className="panel-head"><div><span className="eyebrow">THE BIG PICTURE</span><h3>Investigation report</h3></div><a className="button secondary" href={`/api/investigations/${investigation.id}/report`} download><Download size={15}/>Export Markdown</a></div><div className="report-content"><div className="report-badges"><span className="pill cyan"><ShieldCheck size={12}/>{report.verified_cells} numeric cells recomputed</span>{report.generation === 'computed' && <span className="pill">Computed evidence summary</span>}</div><h2>From evidence to understanding.</h2><p className="executive">{report.summary}</p>{!!report.warnings?.length && <div className="report-warnings" role="status"><h4>Evidence review notices</h4><ul>{report.warnings.map((warning,index) => <li key={index}>{warning}</li>)}</ul></div>}<div className="report-columns"><div><h4>Limitations & uncertainty</h4><ul>{report.limitations.map((s,i) => <li key={i}>{s}</li>)}</ul></div><div><h4><ArrowUpRight size={15}/>Where to look next</h4><ul>{report.next_steps.map((s,i) => <li key={i}>{s}</li>)}</ul></div></div></div></section>;
+}
