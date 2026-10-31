@@ -18,7 +18,7 @@ For the takeover review see [AUDIT.md](AUDIT.md), current test evidence in [VALI
 - Descriptive statistics including sum, mean, median, sample standard deviation and min/max; exact modes with frequencies and tie disclosure; percentage changes, Pearson correlation, group comparisons and IQR outlier candidates.
 - Expanded statistics library: **29 operations and 116 named functions**, covering Excel's statistical reference and ToolPak families, including hypothesis tests, ANOVA, multiple regression, distributions, confidence intervals, sampling, FFT and forecasting. Agent discovery and a direct calculation API are documented in [STATISTICAL_TOOLS.md](STATISTICAL_TOOLS.md), including Excel compatibility differences.
 - Interactive Plotly line, bar, scatter, histogram, and correlation heatmap specifications from actual evidence.
-- Public decision timeline, expandable SQL and evidence, exact-cell recomputation ledger, findings, limitations, follow-up suggestions, and Markdown export.
+- Public decision timeline, expandable SQL and evidence, exact-cell recomputation ledger, findings, limitations, follow-up suggestions, and PDF export.
 - Explicit **Offline analytics** mode: deterministic rules execute real analytics without credentials. The question and image do not control this mode. It is never represented as an autonomous agent.
 - Three reproducible synthetic demo datasets and independently computed expected retail results.
 
@@ -102,7 +102,7 @@ The default E4B download is about 6.6 GB. Model memory also includes context and
 
 Local E4B is experimental for complex investigations. A live regional example completed with image-guided SQL, a chart, a recomputed total, and an explicitly labeled computed report after the model omitted valid measurements. The full monthly retail comparison returned partial results because the model repeatedly generated incorrect date-format SQL. Gemini remains the validated default for that demo. Do not assume equivalent analytical quality when switching models.
 
-Both providers return actions and reports through strict Pydantic validation and use the same guarded SQL, statistics, chart, and evidence verification tools. The selected model is fixed in investigation state and appears in reports and Markdown exports. Ollama receives JSON Schema through `/api/chat` with streaming and thinking disabled; images are sent as base64. See [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs) and [vision](https://docs.ollama.com/capabilities/vision).
+Both providers return actions and reports through strict Pydantic validation and use the same guarded SQL, statistics, chart, and evidence verification tools. The selected model is fixed in investigation state and appears in reports and PDF exports. Ollama receives JSON Schema through `/api/chat` with streaming and thinking disabled; images are sent as base64. See [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs) and [vision](https://docs.ollama.com/capabilities/vision).
 
 Local actions use a separate required-argument schema for each tool. Statistics requires an explicit `operation` and its column/input fields; SQL requires a nonempty `sql` argument. `summary` includes sum, mean, median, sample standard deviation, min/max and count. Use `mode` for modal values and frequencies: tied values are returned as rows, and the scalar mode is null when no unique mode exists. Missing values and numeric infinities are excluded; mode values are compared exactly without rounding. Chart and verification evidence IDs are restricted to eligible retained results. Local planner observations show at most five rows per result to leave room for these contracts; full retained evidence remains available in the UI.
 
@@ -130,6 +130,8 @@ Default budget: eight model-selected steps (configurable 2–12), plus initial v
 SQL evidence has at most 200 rows. Planner context bounds cell text, rows, and total prompt size; truncation is disclosed. Full retained evidence is inspectable in the UI. Charts use the retained tool result rather than regenerated model data.
 
 While an investigation is queued or running, **Stop investigation** replaces the start button. Stopping cancels the backend job and prevents further analytical/model steps. Completed evidence remains visible; when analytical results exist, a computed partial report can be exported without another model request. Stopping before any analysis returns `cancelled` with no invented report. An already-finished investigation is left intact. An in-flight provider request may still be processed or billed, and a calculation already running in a worker thread may finish under its existing limits.
+
+**Export PDF** downloads a paginated report with exact measurements, static charts, source references, the verification ledger, limitations and execution notices. Export runs locally without another AI request. Evidence previews are capped at 4,000 characters per result and 40,000 overall, with omissions disclosed; dataset preview rows and duplicated chart arrays are excluded from the appendix. Full retained evidence remains in the workspace. Historical Markdown examples remain in `demo`, but new exports and the demo preflight produce PDF.
 
 **Verification scope:** model reports provide typed measurements (`evidence_id`, `row`, `field`, `value`). The server resolves every displayed report number against an actual SQL/statistical cell, attaches source-row labels, and rejects mismatched values. Digits in model numerical prose are withheld in favor of computed measurements. Numeric-free prose is still interpretation and may be wrong. Values supplied by the model to the percentage-change helper cannot become dataset-backed findings. Numerical verification re-executes source SQL and matches the result row by its other fields, rather than assuming stable row order. Ambiguous matches remain inconclusive. The ledger stores SQL, source ID, cell, expected/actual values, and status. This verifies consistency of that cell only. Segment contributions are not proven causes, and SQL metric definitions still need review.
 
@@ -186,7 +188,7 @@ Keep the REST contracts stable between developers; backend changes need not alte
 | `POST /api/investigations` | JSON `dataset_id`, `question`, optional `image_id`, optional `model` (ID from `/api/health`), `mode` (`agent` / `offline`); returns 202 and state |
 | `GET /api/investigations/{id}` | Poll status, plan, timeline, evidence, findings, charts, report and errors |
 | `POST /api/investigations/{id}/cancel` | Stop queued/running work, retain completed evidence, and return the final cancellation/partial state; safe to repeat |
-| `GET /api/investigations/{id}/report` | Download a Markdown report with evidence appendix |
+| `GET /api/investigations/{id}/report` | Download a PDF report with static charts, verification ledger and evidence appendix |
 
 ## Two-minute demo
 
@@ -220,7 +222,7 @@ Tests cover CSV/Excel ingestion, malformed files, inferred types, missing values
 - Date inference recognizes ISO date strings. Ambiguous locale formats stay categorical. Missing values are not silently imputed. Correlation is descriptive and includes assumptions. IQR flags need human interpretation.
 - No live Gemini/vision validation is possible without a configured key. Invalid keys, quota limits, model changes and network issues are surfaced with bounded failures. No silent switch from AI mode to offline mode.
 - Plotly is lazy-loaded because its full interactive distribution is large. Vite can warn about its chunk size; this is expected.
-- No PDF export, durable history, multiple-table joins, auth, background scheduler, voice input, database connectors, or production hosting is implemented.
+- No durable history, multiple-table joins, auth, background scheduler, voice input, database connectors, or production hosting is implemented.
 
 ## Build and deployment
 

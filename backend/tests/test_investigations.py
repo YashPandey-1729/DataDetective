@@ -10,7 +10,9 @@ from backend.main import app
 from backend.agent.investigator import InvestigationAgent
 from backend.agent.schemas import AgentAction, ToolArgs, AgentReport, InvestigationRequest
 from backend.services import sessions
-from backend.services.reporting import markdown_report, finalize_report
+from backend.services.reporting import finalize_report
+from backend.services.pdf_report import pdf_report
+from pypdf import PdfReader
 from backend.tools.profiler import profile_dataset
 
 ROOT=Path(__file__).resolve().parents[2]
@@ -50,7 +52,7 @@ def test_adaptive_loop_and_errors():
     assert state['status']=='completed',(state['errors'],state['events'])
     assert len([e for e in state['evidence'] if e['tool']=='execute_sql'])==2
     assert state['report']['verified_cells']==1 and len(state['charts'])==1
-    assert 'West total' in markdown_report(state)
+    assert 'West total' in '\n'.join(page.extract_text() for page in PdfReader(io.BytesIO(pdf_report(state))).pages)
     assert all(r in {e['id'] for e in state['evidence']} for f in state['findings'] for r in f['evidence_ids'])
 
 
@@ -93,7 +95,9 @@ def test_api_offline_e2e():
         assert len(result['charts'])==2 and result['report']['verified_cells']==1
         assert any(e['status']=='skipped' for e in result['events'])
         report=client.get('/api/investigations/'+id+'/report')
-        assert report.status_code==200 and 'Offline analytics' in report.text and '## Evidence' in report.text
+        assert report.status_code==200 and report.headers['content-type']=='application/pdf'
+        text='\n'.join(page.extract_text() for page in PdfReader(io.BytesIO(report.content)).pages)
+        assert 'Offline analytics' in text and 'Evidence appendix' in text
 
 
 def test_api_errors(monkeypatch):

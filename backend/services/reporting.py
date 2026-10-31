@@ -1,5 +1,4 @@
 """Evidence-grounded reports. Model prose is interpretation, never a numerical source."""
-import json
 import math
 import re
 
@@ -92,27 +91,3 @@ def finalize_report(state, draft):
                        'next_steps':[s for s in draft['next_steps'] if not re.search(r'\d',s)],
                        'warnings': list(dict.fromkeys(warnings)), 'verified_cells': len(verified),
                        'generation': draft.get('generation', 'model')}
-
-
-def markdown_report(state):
-    report = state['report']
-    lines = ['# DataDetective AI investigation', '', state['question'], '', f"Mode: {state['mode']}"]
-    if state.get('model'):
-        lines += [f"Model: {state['model']}"]
-    lines += ['', report['summary'], '', '## Findings']
-    for finding in report['findings']:
-        lines.append(f"- [{finding['kind']}] {finding['claim']} ({', '.join(finding['evidence_ids']) or 'no evidence'})")
-        for m in finding.get('measurements', []):
-            lines.append(f"  - {m['field']} = {m['value']} · {m['verification']} · {m['evidence_id']} row {m.get('row')} · {json.dumps(m['context'], ensure_ascii=False)}")
-    lines += ['', '## Numerical verification ledger']
-    for e in state['evidence']:
-        if e['tool'] == 'verify_finding':
-            r = e['result']
-            lines.append(f"- {r['status']}: {r['field']} row {r['row']} = {r['actual']}; source {r['evidence_id']}. {r['scope']}")
-    lines += ['', '## Limitations', *['- '+s for s in report['limitations']], '', '## Next steps', *['- '+s for s in report['next_steps']], '', '## Report checks', *['- '+s for s in report.get('warnings', [])], '', '## Evidence']
-    for e in state['evidence']:
-        payload = json.dumps(e['result'], ensure_ascii=False, indent=2)
-        longest = max((len(m.group()) for m in re.finditer(r'`+', payload)), default=0)
-        fence = '`' * max(3, longest + 1)
-        lines += [f"### {e['id']} · {e['tool']}", fence+'json', payload, fence]
-    return '\n'.join(lines)

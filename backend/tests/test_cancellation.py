@@ -1,5 +1,7 @@
 """Cancellation stops actual jobs, retains evidence and handles queue/completion races."""
 import asyncio
+from io import BytesIO
+from pypdf import PdfReader
 import threading
 import time
 import pandas as pd
@@ -63,7 +65,9 @@ def test_stop_running_job_preserves_real_evidence_and_exports_computed_report(mo
         assert stopped.wait(2) and not continued
         assert client.post(f'/api/investigations/{id}/cancel').json()==state
         exported=client.get(f'/api/investigations/{id}/report')
-        assert exported.status_code==200 and 'user stopped' in exported.text
+        assert exported.status_code==200 and exported.headers['content-type']=='application/pdf'
+        text='\n'.join(page.extract_text() for page in PdfReader(BytesIO(exported.content)).pages)
+        assert 'user stopped' in text
     assert not main.tasks and not main.investigation_jobs
 
 

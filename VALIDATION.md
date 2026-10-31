@@ -1,5 +1,12 @@
 # Validation record
 
+## PDF report export — 2026-10-31
+
+- Replaced the Markdown download with a PDF response and Export PDF control. Reports use validated findings, exact measurements and source labels, static retained-data charts, the verification ledger, limitations, execution notices and a bounded evidence appendix. Export requires no model call. The demo preflight now saves PDF; historical Markdown samples remain unchanged.
+- Added pinned ReportLab and pypdf dependencies and installed them in the local environment. Exports run in a worker thread with bounded admission; text is escaped, fonts are embedded, long tables paginate with repeated headers and shortened evidence previews are disclosed. Tests cover all five chart types, Unicode/currency, literal markup, tiny values, long content, download MIME/filename, capacity, missing/not-ready sessions and cancelled-report export.
+- Full backend suite: **317 passed** with third-party Starlette/Matplotlib deprecation warnings; **22 frontend tests passed**; TypeScript and production build passed with the existing Plotly chunk warning. Dependency consistency passed. Final pagination refinements passed the **five PDF-specific tests** again.
+- Generated a synthetic retail offline report and visually inspected all rendered pages for layout, chart legibility, section breaks and footer numbering. No live AI calls or user datasets were used.
+
 ## User-controlled investigation cancellation — 2026-10-31
 
 - Added an idempotent cancellation API and a Stop investigation button for queued/running work. Cancellation stops future steps, retains completed evidence and generates a computed partial report when analytical results exist, with no additional model request. Pre-analysis cancellation has no fabricated report. Already-finished outcomes remain intact.

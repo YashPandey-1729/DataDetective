@@ -6,11 +6,11 @@ from pathlib import Path
 from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile, Query
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import PlainTextResponse
+from fastapi.responses import Response
 from backend.agent.schemas import DatasetResponse, InvestigationRequest, InvestigationResponse, StatisticsRequest, AgentAction, ToolArgs
 from backend.agent.investigator import InvestigationAgent
 from backend.services import sessions
-from backend.services.reporting import markdown_report
+from backend.services.pdf_report import pdf_report
 from backend.tools.data_loader import load_dataset, MAX_UPLOAD
 from backend.tools.profiler import profile_dataset
 from backend.tools.vision import validate_image
@@ -25,6 +25,7 @@ load_dotenv(Path(__file__).resolve().parents[1] / '.env')
 tasks=set()
 investigation_jobs={}
 statistics_gate=asyncio.Semaphore(2)
+report_gate=asyncio.Semaphore(2)
 
 
 @asynccontextmanager
@@ -183,8 +184,12 @@ async def cancel_investigation(id:str):
     return state
 
 
-@app.get('/api/investigations/{id}/report',response_class=PlainTextResponse)
+@app.get('/api/investigations/{id}/report',response_class=Response,responses={200:{'content':{'application/pdf':{}}}})
 async def report(id:str):
     state=await investigation(id)
     if not state['report']: raise HTTPException(409,'Report is not ready.')
-    return PlainTextResponse(markdown_report(state),headers={'Content-Disposition':f'attachment; filename="investigation-{id[:8]}.md"'})
+    if report_gate.locked(): raise HTTPException(429,'Report export capacity reached. Retry after current downloads finish.')
+    snapshot={**state,'evidence':list(state['evidence']),'charts':list(state['charts'])}
+    async with report_gate:
+        content=await asyncio.to_thread(pdf_report,snapshot)
+    return Response(content,media_type='application/pdf',headers={'Content-Disposition':f'attachment; filename="investigation-{id[:8]}.pdf"'})

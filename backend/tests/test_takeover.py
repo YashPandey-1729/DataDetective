@@ -11,6 +11,7 @@ from fastapi.testclient import TestClient
 from google import genai
 from google.genai import types
 from PIL import Image
+from pypdf import PdfReader
 from backend.main import app
 from backend.agent.investigator import InvestigationAgent
 from backend.agent.schemas import AgentAction, ToolArgs, InvestigationRequest
@@ -169,7 +170,9 @@ def test_multimodal_adaptive_sdk_api_e2e(monkeypatch,lowest,model):
         assert planner_requests[0]['image_context']['highlighted_regions']==[lowest]
         assert 'highlighted revenue' in planner_requests[0]['question']
         exported=c.get('/api/investigations/'+id+'/report')
-        assert exported.status_code==200 and f'Model: {model}' in exported.text
+        assert exported.status_code==200 and exported.headers['content-type']=='application/pdf'
+        text='\n'.join(page.extract_text() for page in PdfReader(io.BytesIO(exported.content)).pages)
+        assert f'Model: {model}' in text
 
 
 def test_streamed_request_limit_before_parser():

@@ -42,6 +42,8 @@ pyparsing==3.3.3
 pytest==9.2.0
 python-dateutil==3.0.0
 python-dotenv==1.2.4
+reportlab==4.4.9
+pypdf==6.10.0
 python-multipart==0.0.32
 pytz==2026.6
 PyYAML==6.0.3

@@ -7,3 +7,6 @@ dist/
 *.tsbuildinfo
 *.log
 runtime/
+output/pdf/
+tmp/pdfs/
+demo/latest_checked_report.pdf

@@ -62,10 +62,11 @@ def main():
             if args.model:
                 assert state['model']==args.model, 'The investigation did not use the requested model.'
         report=client.get(f'/api/investigations/{state["id"]}/report');report.raise_for_status()
-        (ROOT/'latest_checked_report.md').write_text(report.text,encoding='utf-8')
+        assert report.headers['content-type'].startswith('application/pdf') and report.content.startswith(b'%PDF-')
+        (ROOT/'latest_checked_report.pdf').write_bytes(report.content)
         print(json.dumps({'status':state['status'],'mode':args.mode,'model':state['model'],'investigation_id':state['id'],
             'tools':dict(counts),'charts':len(state['charts']),'verified_cells':state['report']['verified_cells'],
-            'report':'demo/latest_checked_report.md'},indent=2))
+            'report':'demo/latest_checked_report.pdf'},indent=2))
 
 
 if __name__=='__main__': main()
