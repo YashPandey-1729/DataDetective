@@ -14,42 +14,73 @@ Offline analytics computed the temporal or categorical comparisons and descripti
 - [observation] Computed query results; inspect the segment labels and source query. (E04)
   - previous = 633633.4500000003 · computed · E04 row 0 · {"period": "2026-02-01T00:00:00.000", "previous_period": "2026-01-01T00:00:00.000"}
   - total = 528492.3300000001 · computed · E04 row 0 · {"period": "2026-02-01T00:00:00.000", "previous_period": "2026-01-01T00:00:00.000"}
-  - delta = -105141.1200000002 · verified · E04 row 0 · {"period": "2026-02-01T00:00:00.000", "previous_period": "2026-01-01T00:00:00.000"}
-  - pct_change = -16.5933664013 · computed · E04 row 0 · {"period": "2026-02-01T00:00:00.000", "previous_period": "2026-01-01T00:00:00.000"}
+  - delta = -105141.12000000023 · verified · E04 row 0 · {"period": "2026-02-01T00:00:00.000", "previous_period": "2026-01-01T00:00:00.000"}
+  - pct_change = -16.593366401347684 · computed · E04 row 0 · {"period": "2026-02-01T00:00:00.000", "previous_period": "2026-01-01T00:00:00.000"}
 - [observation] Computed query results; inspect the segment labels and source query. (E06)
-  - current_total = 67210.82 · computed · E06 row 0 · {"segment": "West"}
-  - previous_total = 163006.8799999999 · computed · E06 row 0 · {"segment": "West"}
-  - delta = -95796.06 · computed · E06 row 0 · {"segment": "West"}
+  - current_total = 67210.81999999996 · computed · E06 row 0 · {"segment": "West"}
+  - previous_total = 163006.87999999995 · computed · E06 row 0 · {"segment": "West"}
+  - delta = -95796.05999999998 · computed · E06 row 0 · {"segment": "West"}
   - current_total = 147612.3 · computed · E06 row 1 · {"segment": "South"}
-  - previous_total = 164556.2500000001 · computed · E06 row 1 · {"segment": "South"}
-  - delta = -16943.9500000001 · computed · E06 row 1 · {"segment": "South"}
-  - current_total = 153419.74 · computed · E06 row 2 · {"segment": "East"}
-  - previous_total = 153458.0200000001 · computed · E06 row 2 · {"segment": "East"}
-  - delta = -38.2800000001 · computed · E06 row 2 · {"segment": "East"}
+  - previous_total = 164556.25000000012 · computed · E06 row 1 · {"segment": "South"}
+  - delta = -16943.950000000128 · computed · E06 row 1 · {"segment": "South"}
+  - current_total = 153419.74000000005 · computed · E06 row 2 · {"segment": "East"}
+  - previous_total = 153458.02000000014 · computed · E06 row 2 · {"segment": "East"}
+  - delta = -38.28000000008615 · computed · E06 row 2 · {"segment": "East"}
 - [observation] Computed query results; inspect the segment labels and source query. (E08)
-  - current_total = 30690.65 · computed · E08 row 0 · {"category": "Electronics"}
+  - current_total = 30690.649999999994 · computed · E08 row 0 · {"category": "Electronics"}
   - previous_total = 123916.4 · computed · E08 row 0 · {"category": "Electronics"}
   - delta = -93225.75 · computed · E08 row 0 · {"category": "Electronics"}
-  - current_total = 24105.92 · computed · E08 row 1 · {"category": "Home"}
-  - previous_total = 27388.74 · computed · E08 row 1 · {"category": "Home"}
-  - delta = -3282.82 · computed · E08 row 1 · {"category": "Home"}
+  - current_total = 24105.919999999995 · computed · E08 row 1 · {"category": "Home"}
+  - previous_total = 27388.74000000001 · computed · E08 row 1 · {"category": "Home"}
+  - delta = -3282.8200000000143 · computed · E08 row 1 · {"category": "Home"}
   - current_total = 12414.25 · computed · E08 row 2 · {"category": "Lifestyle"}
-  - previous_total = 11701.74 · computed · E08 row 2 · {"category": "Lifestyle"}
-  - delta = 712.51 · computed · E08 row 2 · {"category": "Lifestyle"}
-- [observation] Computed descriptive statistics; inspect the tool evidence for method and assumptions. (E09)
-  - count = 5292 · computed · E09 row None · {"column": "Revenue"}
-  - mean = 460.0412528344671 · computed · E09 row None · {"column": "Revenue"}
-  - median = 181.95999999999998 · computed · E09 row None · {"column": "Revenue"}
-  - std = 740.4908809245985 · computed · E09 row None · {"column": "Revenue"}
-  - min = 20.24 · computed · E09 row None · {"column": "Revenue"}
-  - max = 3369.6 · computed · E09 row None · {"column": "Revenue"}
-- [observation] Computed descriptive statistics; inspect the tool evidence for method and assumptions. (E10)
+  - previous_total = 11701.740000000003 · computed · E08 row 2 · {"category": "Lifestyle"}
+  - delta = 712.5099999999966 · computed · E08 row 2 · {"category": "Lifestyle"}
+- [observation] Computed statistical analysis; inspect the tool evidence for method and assumptions. (E09)
+  - count = 5292 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - sum = 2434538.31 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - mean = 460.0412528344671 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - median = 181.95999999999998 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - std = 740.4908809245985 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - min = 20.24 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - max = 3369.6 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - variance = 548326.744732488 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - variance_population = 548223.1304572172 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - std_population = 740.4209143839855 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - standard_error = 10.17910974843524 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - range = 3349.36 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - mean_absolute_deviation = 473.9124110110156 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - skewness = 2.540846145842416 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - kurtosis = 5.550105554055278 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - confidence_margin_95 = 19.95525343077826 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - geometric_mean = 201.17250664743466 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+  - harmonic_mean = 110.62650231923793 · computed · E09 row None · {"column": "Revenue", "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies."}
+- [observation] Computed statistical analysis; inspect the tool evidence for method and assumptions. (E10)
   - count = 614 · computed · E10 row None · {"column": "Revenue", "method": "1.5 × IQR; candidates, not confirmed errors"}
   - lower = -370.78999999999996 · computed · E10 row None · {"column": "Revenue", "method": "1.5 × IQR; candidates, not confirmed errors"}
   - upper = 852.3299999999999 · computed · E10 row None · {"column": "Revenue", "method": "1.5 × IQR; candidates, not confirmed errors"}
+- [observation] Computed statistical table; row labels identify coefficients, bins or other statistical outputs. (E10)
+  - Quantity = 4 · computed · E10 row 0 · {"Transaction ID": "T000001", "Date": "2026-01-01T00:00:00.000", "Region": "West", "Product": "Laptop", "Category": "Electronics"}
+  - Unit Price = 772.37 · computed · E10 row 0 · {"Transaction ID": "T000001", "Date": "2026-01-01T00:00:00.000", "Region": "West", "Product": "Laptop", "Category": "Electronics"}
+  - Revenue = 3089.48 · computed · E10 row 0 · {"Transaction ID": "T000001", "Date": "2026-01-01T00:00:00.000", "Region": "West", "Product": "Laptop", "Category": "Electronics"}
+  - Quantity = 4 · computed · E10 row 1 · {"Transaction ID": "T000002", "Date": "2026-01-01T00:00:00.000", "Region": "West", "Product": "Laptop", "Category": "Electronics"}
+  - Unit Price = 804.63 · computed · E10 row 1 · {"Transaction ID": "T000002", "Date": "2026-01-01T00:00:00.000", "Region": "West", "Product": "Laptop", "Category": "Electronics"}
+  - Revenue = 3218.52 · computed · E10 row 1 · {"Transaction ID": "T000002", "Date": "2026-01-01T00:00:00.000", "Region": "West", "Product": "Laptop", "Category": "Electronics"}
+  - Quantity = 2 · computed · E10 row 2 · {"Transaction ID": "T000014", "Date": "2026-01-01T00:00:00.000", "Region": "East", "Product": "Laptop", "Category": "Electronics"}
+  - Unit Price = 723.07 · computed · E10 row 2 · {"Transaction ID": "T000014", "Date": "2026-01-01T00:00:00.000", "Region": "East", "Product": "Laptop", "Category": "Electronics"}
+  - Revenue = 1446.14 · computed · E10 row 2 · {"Transaction ID": "T000014", "Date": "2026-01-01T00:00:00.000", "Region": "East", "Product": "Laptop", "Category": "Electronics"}
+  - Quantity = 3 · computed · E10 row 3 · {"Transaction ID": "T000025", "Date": "2026-01-01T00:00:00.000", "Region": "North", "Product": "Laptop", "Category": "Electronics"}
+  - Unit Price = 735.04 · computed · E10 row 3 · {"Transaction ID": "T000025", "Date": "2026-01-01T00:00:00.000", "Region": "North", "Product": "Laptop", "Category": "Electronics"}
+  - Revenue = 2205.12 · computed · E10 row 3 · {"Transaction ID": "T000025", "Date": "2026-01-01T00:00:00.000", "Region": "North", "Product": "Laptop", "Category": "Electronics"}
+  - Quantity = 3 · computed · E10 row 4 · {"Transaction ID": "T000028", "Date": "2026-01-01T00:00:00.000", "Region": "North", "Product": "Laptop", "Category": "Electronics"}
+  - Unit Price = 815.03 · computed · E10 row 4 · {"Transaction ID": "T000028", "Date": "2026-01-01T00:00:00.000", "Region": "North", "Product": "Laptop", "Category": "Electronics"}
+  - Revenue = 2445.09 · computed · E10 row 4 · {"Transaction ID": "T000028", "Date": "2026-01-01T00:00:00.000", "Region": "North", "Product": "Laptop", "Category": "Electronics"}
+  - Quantity = 3 · computed · E10 row 5 · {"Transaction ID": "T000040", "Date": "2026-01-01T00:00:00.000", "Region": "South", "Product": "Laptop", "Category": "Electronics"}
+  - Unit Price = 815.43 · computed · E10 row 5 · {"Transaction ID": "T000040", "Date": "2026-01-01T00:00:00.000", "Region": "South", "Product": "Laptop", "Category": "Electronics"}
+  - Revenue = 2446.29 · computed · E10 row 5 · {"Transaction ID": "T000040", "Date": "2026-01-01T00:00:00.000", "Region": "South", "Product": "Laptop", "Category": "Electronics"}
 
 ## Numerical verification ledger
-- verified: delta row 0 = -105141.1200000002; source E04. Only the referenced numeric cell in an unambiguously matched result row was independently recomputed; this does not verify causality or other text in the claim.
+- verified: delta row 0 = -105141.12000000023; source E04. Only the referenced numeric cell in an unambiguously matched result row was independently recomputed; this does not verify causality or other text in the claim.
 
 ## Limitations
 - Offline analytics demo: deterministic rules, no autonomous LLM or image understanding.
@@ -150,8 +181,8 @@ Offline analytics computed the temporal or categorical comparisons and descripti
       "unique": 4,
       "summary": {
         "count": 5292.0,
-        "mean": 2.4899848828,
-        "std": 1.1128422696,
+        "mean": 2.489984882842026,
+        "std": 1.1128422695914033,
         "min": 1.0,
         "25%": 1.0,
         "50%": 2.0,
@@ -167,8 +198,8 @@ Offline analytics computed the temporal or categorical comparisons and descripti
       "unique": 3640,
       "summary": {
         "count": 5292.0,
-        "mean": 185.2107577475,
-        "std": 261.8049866796,
+        "mean": 185.21075774754345,
+        "std": 261.80498667956203,
         "min": 20.24,
         "25%": 44.8775,
         "50%": 69.5,
@@ -184,12 +215,12 @@ Offline analytics computed the temporal or categorical comparisons and descripti
       "unique": 4521,
       "summary": {
         "count": 5292.0,
-        "mean": 460.0412528345,
-        "std": 740.4908809246,
+        "mean": 460.0412528344671,
+        "std": 740.4908809245985,
         "min": 20.24,
         "25%": 87.88,
-        "50%": 181.96,
-        "75%": 393.66,
+        "50%": 181.95999999999998,
+        "75%": 393.65999999999997,
         "max": 3369.6
       }
     }
@@ -386,8 +417,8 @@ Offline analytics computed the temporal or categorical comparisons and descripti
       "previous_period": "2026-01-01T00:00:00.000",
       "previous": 633633.4500000003,
       "total": 528492.3300000001,
-      "delta": -105141.1200000002,
-      "pct_change": -16.5933664013
+      "delta": -105141.12000000023,
+      "pct_change": -16.593366401347684
     }
   ],
   "row_count": 1,
@@ -402,9 +433,9 @@ Offline analytics computed the temporal or categorical comparisons and descripti
   "sql": "WITH monthly AS (SELECT DATE_TRUNC('MONTH', \"Date\") AS period, SUM(\"Revenue\") AS total FROM dataset WHERE NOT \"Date\" IS NULL GROUP BY 1), compared AS (SELECT period, total, LAG(total) OVER (ORDER BY period) AS previous, LAG(period) OVER (ORDER BY period) AS previous_period FROM monthly) SELECT period, previous_period, previous, total, total - previous AS delta, 100.0 * (total - previous) / NULLIF(ABS(previous), 0) AS pct_change FROM compared WHERE NOT previous IS NULL ORDER BY delta LIMIT 1",
   "row": 0,
   "field": "delta",
-  "original": -105141.1200000002,
-  "actual": -105141.1200000002,
-  "expected": -105141.1200000002,
+  "original": -105141.12000000023,
+  "actual": -105141.12000000023,
+  "expected": -105141.12000000023,
   "status": "verified",
   "matched_row": 0,
   "identity_fields": [
@@ -431,27 +462,27 @@ Offline analytics computed the temporal or categorical comparisons and descripti
   "rows": [
     {
       "segment": "West",
-      "current_total": 67210.82,
-      "previous_total": 163006.8799999999,
-      "delta": -95796.06
+      "current_total": 67210.81999999996,
+      "previous_total": 163006.87999999995,
+      "delta": -95796.05999999998
     },
     {
       "segment": "South",
       "current_total": 147612.3,
-      "previous_total": 164556.2500000001,
-      "delta": -16943.9500000001
+      "previous_total": 164556.25000000012,
+      "delta": -16943.950000000128
     },
     {
       "segment": "East",
-      "current_total": 153419.74,
-      "previous_total": 153458.0200000001,
-      "delta": -38.2800000001
+      "current_total": 153419.74000000005,
+      "previous_total": 153458.02000000014,
+      "delta": -38.28000000008615
     },
     {
       "segment": "North",
-      "current_total": 160249.47,
+      "current_total": 160249.47000000003,
       "previous_total": 152612.3,
-      "delta": 7637.17
+      "delta": 7637.170000000042
     }
   ],
   "row_count": 4,
@@ -472,10 +503,10 @@ Offline analytics computed the temporal or categorical comparisons and descripti
         "North"
       ],
       "y": [
-        -95796.06,
-        -16943.9500000001,
-        -38.2800000001,
-        7637.17
+        -95796.05999999998,
+        -16943.950000000128,
+        -38.28000000008615,
+        7637.170000000042
       ],
       "marker": {
         "color": "#56d8e4"
@@ -512,21 +543,21 @@ Offline analytics computed the temporal or categorical comparisons and descripti
   "rows": [
     {
       "category": "Electronics",
-      "current_total": 30690.65,
+      "current_total": 30690.649999999994,
       "previous_total": 123916.4,
       "delta": -93225.75
     },
     {
       "category": "Home",
-      "current_total": 24105.92,
-      "previous_total": 27388.74,
-      "delta": -3282.82
+      "current_total": 24105.919999999995,
+      "previous_total": 27388.74000000001,
+      "delta": -3282.8200000000143
     },
     {
       "category": "Lifestyle",
       "current_total": 12414.25,
-      "previous_total": 11701.74,
-      "delta": 712.51
+      "previous_total": 11701.740000000003,
+      "delta": 712.5099999999966
     }
   ],
   "row_count": 3,
@@ -538,11 +569,24 @@ Offline analytics computed the temporal or categorical comparisons and descripti
 {
   "column": "Revenue",
   "count": 5292,
+  "sum": 2434538.31,
   "mean": 460.0412528344671,
   "median": 181.95999999999998,
   "std": 740.4908809245985,
   "min": 20.24,
-  "max": 3369.6
+  "max": 3369.6,
+  "note": "Finite nonmissing values only. Standard deviation is the sample standard deviation (ddof=1). Use operation mode for modal values and frequencies.",
+  "variance": 548326.744732488,
+  "variance_population": 548223.1304572172,
+  "std_population": 740.4209143839855,
+  "standard_error": 10.17910974843524,
+  "range": 3349.36,
+  "mean_absolute_deviation": 473.9124110110156,
+  "skewness": 2.540846145842416,
+  "kurtosis": 5.550105554055278,
+  "confidence_margin_95": 19.95525343077826,
+  "geometric_mean": 201.17250664743466,
+  "harmonic_mean": 110.62650231923793
 }
 ```
 ### E10 · calculate_statistics

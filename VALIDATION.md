@@ -1,5 +1,15 @@
 # Validation record
 
+## No-download completion pass — 2026-10-31
+
+- Stopped the in-progress Gemma pull and the Ollama service at the user's request. No subsequent package or model downloads were started. The portable runtime is present, but the model download remains partial and is not reported as installed. Partial files are preserved in the ignored runtime directory.
+- Corrected the shared DataFrame serialization path: Pandas' default JSON precision converted a genuine `1e-12` to zero and shortened ordinary floats. Dataset previews, SQL/group result rows and profile summaries now preserve native scalar precision through JSON encoding, including nullable, nested and temporal values. Regression tests cover SQL, profiler and actual multipart HTTP responses.
+- Added a statistics workbench using the existing catalog and calculation endpoints. It exposes all installed operations/functions, shows required columns and parameter schemas, validates request options, displays computed scalar/table results and exports JSON. Literal calculations and simulations carry separate provenance labels and do not become AI report evidence.
+- Added `scripts/run_app.ps1`, a no-download two-server launcher with prerequisite checks, hidden child processes, startup readiness checks, local logs and cleanup on Ctrl+C. `-Check` passed, and the actual launcher started both servers successfully.
+- Backend suite: **298 passed**, one existing Starlette deprecation warning, **32.99 seconds**. Frontend request/form/provenance regression suite: **12 passed**. Production build passed; the existing lazy Plotly size warning remains.
+- Browser checks passed for retail summary and Excel SUM. Revenue summary showed the actual total **2,434,538.31** and Excel SUM of Quantity showed **13,177**. No browser console errors were observed. No live AI call was made in this pass.
+- The full CSV offline HTTP preflight still completed with four SQL results, two charts, a recomputed numeric cell and Markdown export against the independent expected results.
+
 ## Excel statistical coverage expansion — 2026-10-31
 
 - Expanded the original six-operation dispatcher to **29 operations**, with **116 named worksheet functions** and **36 legacy-name aliases**. An explicit coverage fixture includes all **111 entries** from Microsoft's statistical-function reference; the additional functions are SUM, SUMSQ, PRODUCT, SUMIF and SUMIFS. The nineteen ToolPak analyses are covered through named operations and ANOVA/t-test variants. This is an uploaded-data statistical API, not a workbook formula interpreter or a claim of bit-identical Excel behavior. See [STATISTICAL_TOOLS.md](STATISTICAL_TOOLS.md) for coverage, arguments and compatibility differences.

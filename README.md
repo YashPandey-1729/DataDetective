@@ -24,6 +24,16 @@ For the takeover review see [AUDIT.md](AUDIT.md), current test evidence in [VALI
 
 ## Local setup (Windows PowerShell)
 
+If dependencies are already installed, start both servers with one command from the project root:
+
+```powershell
+.\scripts\run_app.ps1
+```
+
+Open http://127.0.0.1:5173 and keep that terminal open. The launcher reuses healthy DataDetective services already running on ports 8000 and 5173, avoiding duplicate-server port errors. Ctrl+C stops only processes started by this launcher. Reused servers remain running; restart their original terminals to load backend code changes. If another application occupies either port, the launcher reports the conflict before starting either server. It does not install packages, start Ollama or download models. `-Check` verifies local prerequisites without starting services. Server logs are written to the ignored `runtime` directory.
+
+After loading a dataset, the **Statistics workbench** provides calculations without any AI key or downloaded model. Choose an analysis and the required columns, then Calculate. It exposes the installed operation/function catalog; advanced methods and Excel functions accept named JSON parameters with visible schemas. Supplied-parameter calculations and simulations are labeled separately from uploaded-data observations. Export result downloads the calculation as JSON; these manual results are separate from the AI investigation report.
+
 Requirements: Python **3.13** (tested), Node **22.6+** (Node 25 tested; frontend tests use built-in TypeScript stripping), npm, and an optional Gemini API key. No database server is needed. Execute from the project root.
 
 ```powershell

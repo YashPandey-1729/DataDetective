@@ -10,6 +10,9 @@ New-Item -ItemType Directory -Force -Path $runtimeRoot | Out-Null
 $env:OLLAMA_HOST = '127.0.0.1:11434'
 $env:OLLAMA_NO_CLOUD = '1'
 $env:OLLAMA_NUM_PARALLEL = '1'
+# Prefer CUDA on this NVIDIA laptop; automatic Vulkan discovery stalled startup.
+# Set OLLAMA_VULKAN=1 explicitly before launching to opt back into Vulkan.
+if (-not $env:OLLAMA_VULKAN) { $env:OLLAMA_VULKAN = '0' }
 if ($ollamaExecutable -eq $portableOllama) { $env:OLLAMA_MODELS = Join-Path $runtimeRoot 'models' }
 try { $null = Invoke-RestMethod 'http://127.0.0.1:11434/api/tags' -TimeoutSec 2 }
 catch {
