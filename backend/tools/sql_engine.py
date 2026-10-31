@@ -8,8 +8,9 @@ from backend.tools.profiler import records
 ALLOWED_FUNCTIONS = {'SUM','AVG','MIN','MAX','COUNT','ROUND','ABS','COALESCE','NULLIF','CAST','TRY_CAST','CASE','TIMESTAMP_TRUNC',
                      'DATE_TRUNC','TIME_TO_STR','STRFTIME','EXTRACT','YEAR','MONTH','DAY','LOWER','UPPER',
                      'LENGTH','TRIM','STDDEV','STDDEV_SAMP','STDDEV_POP','VARIANCE','MEDIAN','QUANTILE_CONT',
-                     'CORR','LAG','LEAD','ROW_NUMBER','RANK','DENSE_RANK','IF','GREATEST','LEAST','CONCAT',
-                     'PERCENTILE_CONT','DATE_DIFF','DATEDIFF','TS_OR_DS_TO_DATE','TIME_STR_TO_TIME','STR_TO_TIME'}
+                     'CORR','MODE','LAG','LEAD','ROW_NUMBER','RANK','DENSE_RANK','IF','GREATEST','LEAST','CONCAT',
+                     'PERCENTILE_CONT','DATE_DIFF','DATEDIFF','TS_OR_DS_TO_DATE','TIME_STR_TO_TIME','STR_TO_TIME',
+                     'SQRT','POWER','POW','EXP','LN','LOG','LOG2','LOG10','CEIL','CEILING','FLOOR','SIGN','TRUNC','MOD'}
 
 
 def validate_sql(sql: str) -> str:
@@ -17,7 +18,7 @@ def validate_sql(sql: str) -> str:
         raise ValueError('SQL must contain 1–8,000 characters.')
     try:
         trees = sqlglot.parse(sql, read='duckdb')
-    except sqlglot.errors.ParseError as exc:
+    except (sqlglot.errors.ParseError, sqlglot.errors.TokenError) as exc:
         raise ValueError('Invalid DuckDB SELECT syntax.') from exc
     if len(trees) != 1 or not isinstance(trees[0], exp.Select):
         raise ValueError('Only one SELECT query is permitted (CTEs supported).')
@@ -39,7 +40,8 @@ def validate_sql(sql: str) -> str:
         if isinstance(node, exp.Table):
             if not isinstance(node.this, exp.Identifier) or node.db or node.catalog or node.name.lower() not in {'dataset', *ctes}:
                 raise ValueError('Only the dataset table and local CTEs are accessible.')
-        if isinstance(node, exp.Func):
+        # sqlglot also models AND/OR as Func nodes; they are boolean operators.
+        if isinstance(node, exp.Func) and not isinstance(node, (exp.And, exp.Or)):
             name = node.name.upper() if isinstance(node, exp.Anonymous) else node.sql_name().upper()
             if name not in ALLOWED_FUNCTIONS:
                 raise ValueError(f'Function {name} is not approved.')

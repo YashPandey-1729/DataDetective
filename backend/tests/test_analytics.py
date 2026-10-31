@@ -58,6 +58,15 @@ def test_row_bound(df):
     assert len(result['rows'])==200 and result['truncated']
 
 
+@pytest.mark.parametrize('condition,expected',[
+    ("Region = 'West' AND Revenue > 60",100.),
+    ("Region = 'East' OR Revenue < 60",250.),
+])
+def test_boolean_filters_are_valid_analytical_sql(df,condition,expected):
+    result=execute_sql(df,f'SELECT SUM(Revenue) AS total FROM dataset WHERE {condition}')
+    assert result['rows']==[{'total':expected}]
+
+
 def test_percentages(df):
     r=calculate_statistics(df,ToolArgs(operation='percentage_change',before=200,after=150))
     assert r['percentage_change']==-25
@@ -90,3 +99,8 @@ def test_retail_ground_truth():
     jan,feb=[row['total'] for row in r['rows'][:2]]
     assert (feb-jan)/jan*100==pytest.approx(expected['february_pct_change'])
     assert feb-jan==pytest.approx(expected['february_delta'])
+
+
+def test_unterminated_sql_string_is_a_validation_error(df):
+    with pytest.raises(ValueError,match='Invalid DuckDB SELECT syntax'):
+        execute_sql(df,"SELECT Revenue FROM dataset WHERE Region='West")

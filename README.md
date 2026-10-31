@@ -6,15 +6,17 @@ A local multimodal data investigation workspace built for the **Applied AI & Nex
 
 The problem: dashboards show changes, but finding the contributing segments usually takes repeated manual queries. DataDetective gives an AI model a small, validated analytical toolbox and feeds every observation back into its next decision.
 
-For the takeover review see [AUDIT.md](AUDIT.md), current test evidence in [VALIDATION.md](VALIDATION.md), and the presentation/preflight instructions in [demo/DEMO_GUIDE.md](demo/DEMO_GUIDE.md). With the backend running, `python demo/check_demo.py --mode offline --format csv` (or `--format xlsx`) checks the actual upload-to-report workflow against independent synthetic ground truth. `--mode agent` performs live Gemini calls only after you configure a key.
+For the takeover review see [AUDIT.md](AUDIT.md), current test evidence in [VALIDATION.md](VALIDATION.md), and the presentation/preflight instructions in [demo/DEMO_GUIDE.md](demo/DEMO_GUIDE.md). With the backend running, `python demo/check_demo.py --mode offline --format csv` (or `--format xlsx`) checks the actual upload-to-report workflow against independent synthetic ground truth. `--mode agent` uses the selected cloud or local model. Add `--model ollama:gemma4:e4b` for local Gemma.
 
 ## Features
 
 - CSV / XLSX / XLS upload, preview, type detection, date coverage, missing values, duplicates, and numeric summaries.
-- Bounded Gemini investigation loop with structured, Pydantic-validated actions. No prewritten sales query sequence is used in AI mode.
+- Select cloud Gemini 3.5 Flash-Lite or local Gemma 4 through Ollama for each investigation. Local Gemma needs no Google API key.
+- Bounded investigation loop with structured, Pydantic-validated tool actions and actual computed observations. No prewritten sales query sequence is used in AI mode.
 - Chart screenshot interpretation with structured axes, categories, dates, visible patterns, schema matches, and ambiguity disclosure.
 - Parser-restricted DuckDB SQL with resource limits and no external access.
-- Descriptive statistics, percentage changes, Pearson correlation, group comparisons, and IQR outlier candidates.
+- Descriptive statistics including sum, mean, median, sample standard deviation and min/max; exact modes with frequencies and tie disclosure; percentage changes, Pearson correlation, group comparisons and IQR outlier candidates.
+- Expanded statistics library: **29 operations and 116 named functions**, covering Excel's statistical reference and ToolPak families, including hypothesis tests, ANOVA, multiple regression, distributions, confidence intervals, sampling, FFT and forecasting. Agent discovery and a direct calculation API are documented in [STATISTICAL_TOOLS.md](STATISTICAL_TOOLS.md), including Excel compatibility differences.
 - Interactive Plotly line, bar, scatter, histogram, and correlation heatmap specifications from actual evidence.
 - Public decision timeline, expandable SQL and evidence, exact-cell recomputation ledger, findings, limitations, follow-up suggestions, and Markdown export.
 - Explicit **Offline analytics** mode: deterministic rules execute real analytics without credentials. The question and image do not control this mode. It is never represented as an autonomous agent.
@@ -22,7 +24,7 @@ For the takeover review see [AUDIT.md](AUDIT.md), current test evidence in [VALI
 
 ## Local setup (Windows PowerShell)
 
-Requirements: Python **3.13** (tested), Node **22.6+** (Node 25 tested; frontend tests use built-in TypeScript stripping), npm, and an optional Gemini API key. No database server is needed. Execute from `C:\Users\hp\Desktop\DataDetective`.
+Requirements: Python **3.13** (tested), Node **22.6+** (Node 25 tested; frontend tests use built-in TypeScript stripping), npm, and an optional Gemini API key. No database server is needed. Execute from the project root.
 
 ```powershell
 python -m venv .venv
@@ -49,32 +51,54 @@ Backend, terminal 1, from the project root:
 Frontend, terminal 2:
 
 ```powershell
-cd C:\Users\hp\Desktop\DataDetective\frontend
+cd frontend
 npm run dev
 ```
 
-Open [the workspace](http://127.0.0.1:5173) and [interactive API documentation](http://127.0.0.1:8000/docs). Vite proxies `/api` to FastAPI. The app works without a Gemini key in Offline analytics mode.
+Open [the workspace](http://127.0.0.1:5173) and [interactive API documentation](http://127.0.0.1:8000/docs). Vite proxies `/api` to FastAPI. The app works without a Gemini key using local Gemma or Offline analytics.
 
 On macOS/Linux, use `python3`, `.venv/bin/python`, and your checkout path in place of the Windows equivalents.
 
-## Gemini configuration
+## Cloud Gemini configuration
 
-Create a key in [Google AI Studio](https://aistudio.google.com/apikey). Copy the safe example and edit `.env` locally:
+Create a key in [Google AI Studio](https://aistudio.google.com/apikey). Copy `.env.example` to `.env` if you do not already have one, then set `GEMINI_API_KEY`. `GEMINI_MODEL=gemini-3.5-flash-lite` remains the cloud default. Restart FastAPI, click **Reconnect**, select **Autonomous AI agent**, then choose Gemini in **AI model**.
+
+Keys stay on the backend and `.env` is ignored by Git. Do not put credentials in `VITE_` variables. Gemini receives the question, dataset context, bounded tool results, and any attached image.
+
+The official `google-genai` SDK uses `response_json_schema`. Strict object constraints are preserved; array-length caps are omitted from the transmitted schema to avoid Gemini's nested-schema complexity limit, while Pydantic enforces the full schema locally. See [Google structured outputs](https://ai.google.dev/gemini-api/docs/generate-content/structured-output).
+
+## Local Gemma configuration
+
+Install [Ollama for Windows](https://ollama.com/download/windows), then run from the project root:
 
 ```powershell
-Copy-Item .env.example .env
+.\scripts\start_local_gemma.ps1 -Pull
 ```
+
+The script also supports a portable Ollama executable at `runtime/ollama/ollama.exe`. For that installation it keeps models in the ignored `runtime/models` directory. It starts a hidden local service when needed, binds to loopback, disables Ollama cloud features for the child process, and downloads `gemma4:e4b`. An already running Ollama service is reused. Downloading the runtime/model requires internet; investigation requests use the local service.
+
+Settings in the root `.env` (defaults shown):
 
 ```dotenv
-GEMINI_API_KEY=replace-with-your-key
-GEMINI_MODEL=gemini-flash-latest
-MAX_AGENT_STEPS=8
-CORS_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+OLLAMA_BASE_URL=http://127.0.0.1:11434
+OLLAMA_MODEL=gemma4:e4b
+OLLAMA_CONTEXT_LENGTH=8192
+OLLAMA_TIMEOUT_SECONDS=180
 ```
 
-Restart FastAPI and click **Reconnect**. Select **Gemini autonomous agent**. A model alias can change; use a text-and-image capable model available to your API account. Keys stay on the backend and `.env` is ignored by Git. Do not put credentials in `VITE_` variables. Agent mode sends dataset previews, schema, bounded tool results, your question, and any attached image to Google; offline mode does not.
+Restart FastAPI and click **Reconnect**. Choose **Autonomous AI agent → Gemma 4 · Local (Ollama)**. The backend checks that Ollama is running and the configured model is downloaded. No Google API key is required. Questions, images, analytical actions, and report generation use local Ollama. Hosted Gemma has been removed; there is no cloud fallback. Only loopback Ollama addresses and local `gemma4:` tags are accepted. Redirects and environment HTTP proxies are disabled for model requests.
 
-The official `google-genai` SDK's `client.aio.models.generate_content`, `GenerateContentConfig(response_schema=...)`, and image `Part.from_bytes` interface are used. PydanticAI was intentionally omitted to keep the hackathon integration small. Reference: [Google Gen AI SDK](https://googleapis.github.io/python-genai/).
+The default E4B download is about 6.6 GB. Model memory also includes context and image processing. On smaller machines, try `gemma4:e2b`: set `OLLAMA_MODEL` in `.env`, run `ollama pull gemma4:e2b`, and restart FastAPI. When using the PowerShell launcher with a different model, also set `$env:OLLAMA_MODEL='gemma4:e2b'` before `-Pull`. Larger contexts increase memory use; overlarge prompts and truncated responses fail explicitly. Local model quality and speed depend on the model and hardware.
+
+Local E4B is experimental for complex investigations. A live regional example completed with image-guided SQL, a chart, a recomputed total, and an explicitly labeled computed report after the model omitted valid measurements. The full monthly retail comparison returned partial results because the model repeatedly generated incorrect date-format SQL. Gemini remains the validated default for that demo. Do not assume equivalent analytical quality when switching models.
+
+Both providers return actions and reports through strict Pydantic validation and use the same guarded SQL, statistics, chart, and evidence verification tools. The selected model is fixed in investigation state and appears in reports and Markdown exports. Ollama receives JSON Schema through `/api/chat` with streaming and thinking disabled; images are sent as base64. See [Ollama structured outputs](https://docs.ollama.com/capabilities/structured-outputs) and [vision](https://docs.ollama.com/capabilities/vision).
+
+Local actions use a separate required-argument schema for each tool. Statistics requires an explicit `operation` and its column/input fields; SQL requires a nonempty `sql` argument. `summary` includes sum, mean, median, sample standard deviation, min/max and count. Use `mode` for modal values and frequencies: tied values are returned as rows, and the scalar mode is null when no unique mode exists. Missing values and numeric infinities are excluded; mode values are compared exactly without rounding. Chart and verification evidence IDs are restricted to eligible retained results. Local planner observations show at most five rows per result to leave room for these contracts; full retained evidence remains available in the UI.
+
+SQL functions are restricted to approved calculations, alongside the single-dataset table restrictions and DuckDB's disabled external access. This limits the capabilities of generated SQL; it does not prescribe the analytical queries. `MODE(column ORDER BY column)` is supported and selects one modal value deterministically when tied. The statistics `mode` operation returns all tied modes, capped at 200 with truncation disclosed.
+
+To request SQL explicitly, ask: **Use execute_sql to summarize trip_distance and total_amount, then run a second SQL query to inspect the largest total_amount values. Generate a chart and verify a computed value.** Substitute your actual column names. The model chooses the queries and DuckDB executes them under the existing read-only restrictions. After updating backend code, restart FastAPI, re-upload your dataset, and start a new investigation.
 
 ## How the agent works
 
@@ -91,7 +115,7 @@ Question + dataset profile + optional structured vision context
 
 The model can invoke `profile_dataset`, `execute_sql`, `calculate_statistics`, `inspect_image`, `generate_chart`, and `verify_finding`. `finish` ends the analytical loop. An initial profile and optional image interpretation happen before the adaptive loop. The model's subsequent analytical steps are chosen from actual observations; its public explanation is shown in the timeline. Internal chain-of-thought is neither requested nor displayed.
 
-Default budget: eight model-selected steps (configurable 2–12), plus initial vision, profile, final report, and at most two transparent artifact-finalization calls. Finish requires at least two distinct successful dataset analytical actions, a chart and a numerical verification when numeric SQL evidence exists. If the model omits artifacts, system finalization can chart and recompute existing evidence; those events are explicitly labeled and never introduce a fixed analytical query sequence. Resource-limited work is returned as `partial`, not complete. Model requests have a 50-second outer timeout, two model failures stop the loop, and three tool failures end exploration. Only two investigations run concurrently and four may be active/queued. No analytical success means a failed investigation, never invented results. If report generation fails or supplies no valid numerical measurements after valid analytics, a computed summary is used.
+Default budget: eight model-selected steps (configurable 2–12), plus initial vision, profile, final report, and at most two transparent artifact-finalization calls. Finish requires at least two distinct successful dataset analytical actions, a chart and a numerical verification when numeric SQL evidence exists. If the model omits artifacts, system finalization can chart and recompute existing evidence; those events are explicitly labeled and never introduce a fixed analytical query sequence. Resource-limited work is returned as `partial`, not complete. Each Gemini request attempt has a 50-second outer timeout; local Ollama requests default to 180 seconds, including model loading. Temporary rate limits with a provider-supplied retry delay allow at most two pauses of up to 60 seconds, shown in the timeline; long quota delays and non-retryable errors fail without those retries. Two model failures stop the loop, and three tool failures end exploration. Only two investigations run concurrently and four may be active/queued. No analytical success means a failed investigation, never invented results. If report generation fails or supplies no valid numerical measurements after valid analytics, a computed summary is used.
 
 SQL evidence has at most 200 rows. Planner context bounds cell text, rows, and total prompt size; truncation is disclosed. Full retained evidence is inspectable in the UI. Charts use the retained tool result rather than regenerated model data.
 
@@ -99,7 +123,7 @@ SQL evidence has at most 200 rows. Planner context bounds cell text, rows, and t
 
 ## Multimodal behavior
 
-PNG/JPEG files are decoded, size-checked, metadata-stripped, and resized on the backend. Gemini returns typed chart information and compares labels with real schema columns. Unknown schema matches are removed and disclosed. Ambiguities remain visible. The planner receives this context before selecting analytical tools. Visual estimates are explicitly unverified and cannot enter the numeric verification ledger without an actual SQL result. Offline mode stores the image but explicitly skips interpretation.
+PNG/JPEG files are decoded, size-checked, metadata-stripped, and resized on the backend. The selected model returns typed chart information and compares labels with real schema columns. Unknown schema matches are removed and disclosed. Ambiguities remain visible. The planner receives this context before selecting analytical tools. Visual estimates are explicitly unverified and cannot enter the numeric verification ledger without an actual SQL result. Offline mode stores the image but explicitly skips interpretation.
 
 ## Project structure / two-developer split
 
@@ -114,7 +138,7 @@ backend/                       Developer 1
     data_loader.py, profiler.py CSV/Excel loading and quality
     sql_engine.py              SQL AST restrictions and bounded DuckDB execution
     statistics.py              Predefined statistical operations
-    vision.py                  Validated uploads and Gemini chart interpretation
+    vision.py                  Validated uploads and cloud/local chart interpretation
     charts.py, verifier.py     Data-only chart specs and numeric recomputation
   services/
     sessions.py, reporting.py  In-memory lifecycle and report generation
@@ -143,11 +167,11 @@ Keep the REST contracts stable between developers; backend changes need not alte
 
 | Endpoint | Behavior |
 | --- | --- |
-| `GET /api/health` | Health, model name, AI configuration state |
+| `GET /api/health` | Health, default model, available model choices, AI configuration state |
 | `POST /api/datasets` | Multipart `file`; returns dataset ID, profile and preview |
 | `GET /api/demo/{name}` | Load `retail_sales`, `sensor_data`, or `student_performance` |
 | `POST /api/images` | Multipart `file`; returns image ID; interpretation happens during investigation |
-| `POST /api/investigations` | JSON `dataset_id`, `question`, optional `image_id`, `mode` (`agent` / `offline`); returns 202 and state |
+| `POST /api/investigations` | JSON `dataset_id`, `question`, optional `image_id`, optional `model` (ID from `/api/health`), `mode` (`agent` / `offline`); returns 202 and state |
 | `GET /api/investigations/{id}` | Poll status, plan, timeline, evidence, findings, charts, report and errors |
 | `GET /api/investigations/{id}/report` | Download a Markdown report with evidence appendix |
 

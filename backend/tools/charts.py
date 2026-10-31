@@ -17,6 +17,20 @@ def generate_chart(result, args):
         raise ValueError('Unsupported chart type.')
     layout = {'xaxis': {'title': {'text': args.x}}, 'yaxis': {'title': {'text': args.y or 'Count'}}}
     if kind == 'heatmap':
+        if result.get('matrix_kind') in {'correlation','covariance'}:
+            columns=result.get('columns',[])
+            if len(rows)!=len(columns) or [row.get(result.get('matrix_label','variable')) for row in rows]!=columns:
+                raise ValueError('Matrix labels and rows must align.')
+            z=[[row.get(column) for column in columns] for row in rows]
+            if any(value is not None and not _number(value) for row in z for value in row):
+                raise ValueError('Matrix cells must be finite numbers or undefined (null).')
+            correlation=result['matrix_kind']=='correlation'
+            trace={'type':'heatmap','x':columns,'y':columns,'z':z,'colorscale':'Teal',
+                   'colorbar':{'title':{'text':'Correlation' if correlation else 'Covariance'}}}
+            if correlation:trace.update(zmin=-1,zmax=1)
+            layout={'xaxis':{'title':{'text':'Metric'}},'yaxis':{'title':{'text':'Metric'}}}
+            return {'title':args.title or 'Statistical matrix','data':[trace],'layout':layout,
+                    'evidence_id':args.evidence_id,'truncated':result.get('truncated',False)}
         numeric = [c for c in rows[0] if all(c in row and (row[c] is None or _number(row[c])) for row in rows)
                    and sum(_number(row.get(c)) for row in rows) >= 3]
         if len(numeric) < 2:

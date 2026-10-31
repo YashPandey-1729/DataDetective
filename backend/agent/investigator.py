@@ -6,12 +6,17 @@ from datetime import datetime, timezone
 from google import genai
 from google.genai import types
 from backend.agent.schemas import AgentAction, ToolArgs, AgentReport
-from backend.agent.prompts import SYSTEM
+from backend.agent.prompts import SYSTEM, LOCAL_SYSTEM
+from backend.agent.tool_contracts import validate_tool_arguments
 from backend.services.sessions import datasets, images
 from backend.services.reporting import finalize_report
+from backend.services.gemini import generate_structured
+from backend.services.models import default_model, is_local_model
+from backend.services import ollama
 from backend.tools.profiler import profile_dataset
 from backend.tools.sql_engine import execute_sql
 from backend.tools.statistics import calculate_statistics
+from backend.tools.statistical_catalog import describe_statistics
 from backend.tools.charts import generate_chart
 from backend.tools.verifier import verify_finding
 from backend.tools.vision import inspect_image
@@ -37,7 +42,7 @@ class InvestigationAgent:
         self.state = state
         self.dataset = datasets[state['dataset_id']]
         self.client = client
-        self.model = os.getenv('GEMINI_MODEL','gemini-flash-latest')
+        self.model = state.get('model') or default_model()
         # Hold an image reference while queued/running; expiry must not invalidate a job.
         self.image = images.get(state.get('image_id'))
 
@@ -48,7 +53,9 @@ class InvestigationAgent:
         if action.tool=='execute_sql':
             return await asyncio.to_thread(execute_sql, df, args.sql or '')
         if action.tool=='calculate_statistics':
-            return await asyncio.to_thread(calculate_statistics, df, args)
+            return await asyncio.to_thread(calculate_statistics, df, args,s['evidence'])
+        if action.tool=='statistics_catalog':
+            return describe_statistics(args.name or 'all',args.category)
         if action.tool=='generate_chart':
             src = next((e for e in s['evidence'] if e['id']==args.evidence_id and e['tool'] in {'execute_sql','calculate_statistics'}),None)
             if not src:
@@ -61,17 +68,19 @@ class InvestigationAgent:
             if s['image_context']:
                 return s['image_context']
             if not s['image_id'] or not self.client:
-                raise ValueError('Image understanding requires an image and configured Gemini model.')
+                raise ValueError('Image understanding requires an image and an available AI model.')
             if not self.image:
                 raise ValueError('Attached image is no longer available.')
-            result=await asyncio.wait_for(inspect_image(self.client,self.model,self.image['bytes'],list(df.columns)),50)
+            result=await inspect_image(self.client,self.model,self.image['bytes'],list(df.columns),on_retry=self.rate_limit_notice)
             s['image_context']=result
             return result
         raise ValueError('Unsupported tool.')
 
     async def execute(self, action):
         item=event(self.state,action.tool,action.explanation)
+        item['input']=action.args.model_dump(exclude_none=True)
         try:
+            validate_tool_arguments(action)
             result=await self.tool(action)
             entry=evidence(self.state,action.tool,result)
             item.update(status='completed',evidence_id=entry['id'])
@@ -84,11 +93,32 @@ class InvestigationAgent:
             return {'tool':action.tool,'error':message}
 
     async def generate(self, schema, context):
-        response=await asyncio.wait_for(self.client.aio.models.generate_content(model=self.model,
+        if is_local_model(self.model):
+            return await ollama.generate_structured(self.client,model=self.model,schema=schema,
+                contents=json.dumps(context,ensure_ascii=False,default=str),system_instruction=LOCAL_SYSTEM,
+                action_constraints=self.action_constraints() if schema is AgentAction else None)
+        return await generate_structured(self.client,model=self.model,schema=schema,
             contents=json.dumps(context,ensure_ascii=False,default=str),
-            config=types.GenerateContentConfig(system_instruction=SYSTEM,response_mime_type='application/json',
-                                               response_schema=schema,temperature=0.15)),50)
-        return schema.model_validate_json(response.text)
+            system_instruction=SYSTEM,temperature=0.15,on_retry=self.rate_limit_notice)
+
+    def action_constraints(self):
+        tabular=[entry for entry in self.state['evidence']
+                 if entry['tool'] in {'execute_sql','calculate_statistics'} and entry['result'].get('rows')]
+        numeric_sql=[entry['id'] for entry in tabular if entry['tool']=='execute_sql'
+                     and any(isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)
+                             for row in entry['result']['rows'] for value in row.values())]
+        constraints={'chart_evidence_ids':[entry['id'] for entry in tabular], 'verification_evidence_ids':numeric_sql}
+        requests=[]
+        for entry in reversed(self.state['evidence']):
+            result=entry['result']
+            if entry['tool']=='statistics_catalog' and result.get('kind') in {'operation','excel_function'}:
+                request={'operation':result['operation'],**({'function':result['function']} if result.get('function') else {})}
+                if request not in requests:requests.append(request)
+        if requests:constraints['statistical_requests']=requests[:3]
+        return constraints
+
+    def rate_limit_notice(self, delay):
+        event(self.state,'model',f'AI service rate limit: waiting {delay} seconds before a bounded retry.','completed')
 
     def context(self, remaining):
         def bounded(value, chars=240, count=12):
@@ -100,23 +130,34 @@ class InvestigationAgent:
                 return {k: bounded(v, chars, count) for k,v in list(value.items())[:100]}
             return value
         observations=[]
+        inputs={item.get('evidence_id'):item['input'] for item in self.state['events'] if 'input' in item and item.get('evidence_id')}
+        row_limit=5 if is_local_model(self.model) else 35
         for e in self.state['evidence']:
             # Keep every evidence ID and bounded observations, not all raw dataset cells.
             result=e['result']
             if e['tool']=='generate_chart':
                 result={'title':result['title'],'evidence_id':result['evidence_id']}
+            if e['tool']=='statistics_catalog' and is_local_model(self.model):
+                result={key:value for key,value in result.items() if key!='parameters_schema'}
+                if result.get('kind')=='catalog':
+                    # Keep the entire operation menu. Generic list clipping used
+                    # to hide inference/time-series operations after item twelve.
+                    result={**result,'operations':{item['name']:item['category'] for item in result.get('operations',[])},
+                            'excel_functions':{item['name']:item['description'][:80] for item in result.get('excel_functions',[])[:12]}}
             if isinstance(result,dict) and isinstance(result.get('rows'),list):
-                result={**result,'rows':result['rows'][:35], 'context_rows_omitted':max(0,len(result['rows'])-35)}
+                result={**result,'rows':result['rows'][:row_limit], 'context_rows_omitted':max(0,len(result['rows'])-row_limit)}
             clipped=bounded(result)
             if len(json.dumps(clipped,default=str)) > 6500:
                 clipped=bounded(result,chars=80,count=1)
                 if isinstance(clipped,dict): clipped['context_truncated']=True
-            observations.append({**e,'result':clipped})
+            observations.append({**e,'result':clipped,**({'input':bounded(inputs[e['id']],chars=1200)} if e['id'] in inputs else {})})
         profile=self.dataset.profile
         schema={k:v for k,v in profile.items() if k not in {'columns','preview'}}
         schema['columns']=[{k:bounded(v) for k,v in c.items() if k not in {'summary','monthly_coverage'}} for c in profile['columns']]
         context={'question':self.state['question'],'schema':schema,'image_context':bounded(self.state['image_context']),
                 'observations':observations,'recent_errors':self.state['errors'][-2:],'remaining_tool_calls':remaining,
+                'failed_actions':bounded([{'tool':e['tool'],'args':e['input'],'error':e.get('error')}
+                    for e in self.state['events'] if e['status']=='failed' and 'input' in e][-2:],chars=8000),
                 'completion_requirements':self.completion_requirements(),
                 'context_note':'Text and lists are bounded. Use aggregation tools rather than assuming omitted values. Full retained evidence is available to the user.'}
         # Profile evidence repeats schema and may contain enormous uploaded text cells.
@@ -133,7 +174,8 @@ class InvestigationAgent:
 
     def analytical_evidence(self):
         return [e for e in self.state['evidence'] if e['tool'] in {'execute_sql','calculate_statistics'}
-                and not ('before' in e['result'] and 'after' in e['result'])]
+                and not ('before' in e['result'] and 'after' in e['result'])
+                and e['result'].get('source_type','dataset')=='dataset']
 
     def numeric_sql_cell(self):
         for e in self.state['evidence']:
@@ -170,7 +212,8 @@ class InvestigationAgent:
 
     async def run_agent(self):
         if self.client is None:
-            self.client=genai.Client(api_key=os.environ['GEMINI_API_KEY'],http_options=types.HttpOptions(timeout=45000))
+            self.client=ollama.create_client() if is_local_model(self.model) else genai.Client(
+                api_key=os.environ['GEMINI_API_KEY'],http_options=types.HttpOptions(timeout=45000))
         if self.state['image_id']:
             await self.execute(AgentAction(tool='inspect_image',explanation='Read the chart and compare its labels with the dataset schema.'))
         try: budget=max(2,min(int(os.getenv('MAX_AGENT_STEPS','8')),12))
@@ -180,9 +223,10 @@ class InvestigationAgent:
         for step in range(budget):
             try:
                 action=await self.generate(AgentAction,self.context(budget-step))
-            except Exception:
+            except Exception as exc:
                 model_failures+=1
-                self.state['errors'].append('Gemini request failed, timed out, or returned invalid structured output.')
+                self.state['errors'].append(str(exc)[:350] if is_local_model(self.model) and type(exc) is ValueError
+                    else 'AI model request failed, timed out, or returned invalid structured output.')
                 event(self.state,'model','Model request failed; retrying within the bounded budget.','failed')
                 if model_failures>=2:
                     self.state['stop_reason']='model_unavailable'
@@ -205,9 +249,9 @@ class InvestigationAgent:
                     self.state['stop_reason']='tool_failure_limit'
                     break
         if not self.analytical_evidence():
-            raise RuntimeError('No analytical tools completed successfully. Check Gemini access and retry, or use offline analytics.')
+            raise RuntimeError('No analytical tools completed successfully. Check model access and retry, or use offline analytics.')
         await self.ensure_artifacts()
-        event(self.state,'report','Compile findings with evidence references and explicit limitations.')
+        report_event=event(self.state,'report','Compile findings with evidence references and explicit limitations.')
         try:
             draft=(await self.generate(AgentReport,{**self.context(0),'instruction':'Return the final report. Use numerical-free prose and structured measurements with exact cell values. Reference only actual analytical evidence IDs.'})).model_dump()
         except Exception:
@@ -217,7 +261,7 @@ class InvestigationAgent:
         if not any(f.get('measurements') for f in self.state['findings']) and self.numeric_sql_cell():
             self.state['errors'].append('Model report supplied no valid numeric measurements; showing a computed evidence summary.')
             finalize_report(self.state,self.fallback_report())
-        self.state['events'][-1]['status']='completed'
+        report_event['status']='completed'
 
     def fallback_report(self):
         findings=[]
@@ -229,11 +273,25 @@ class InvestigationAgent:
                 findings.append({'claim':'Computed query results; inspect the segment labels and source query.',
                     'kind':'observation','evidence_ids':[e['id']],'measurements':measurements[:12]})
             elif e['tool']=='calculate_statistics':
+                if e['result'].get('source_type','dataset')!='dataset':continue
                 result={k:v for k,v in e['result'].items() if k!='rows'}
                 measures=[{'evidence_id':e['id'],'row':None,'field':k,'value':v} for k,v in result.items()
                     if isinstance(v,(float,int)) and not isinstance(v,bool) and math.isfinite(v)]
-                findings.append({'claim':'Computed descriptive statistics; inspect the tool evidence for method and assumptions.',
+                findings.append({'claim':'Computed statistical analysis; inspect the tool evidence for method and assumptions.',
                     'kind':'observation','evidence_ids':[e['id']],'measurements':measures})
+                if e['result'].get('operation')=='mode':
+                    modal_measures=[{'evidence_id':e['id'],'row':i,'field':field,'value':value}
+                        for i,row in enumerate(e['result']['rows'][:6]) for field,value in row.items()
+                        if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)]
+                    findings.append({'claim':'Values tied for the highest observed frequency; inspect mode evidence for all retained ties.',
+                        'kind':'observation','evidence_ids':[e['id']],'measurements':modal_measures[:12]})
+                else:
+                    row_measures=[{'evidence_id':e['id'],'row':i,'field':field,'value':value}
+                        for i,row in enumerate(e['result'].get('rows',[])[:6]) for field,value in row.items()
+                        if isinstance(value,(int,float)) and not isinstance(value,bool) and math.isfinite(value)]
+                    if row_measures:
+                        findings.append({'claim':'Computed statistical table; row labels identify coefficients, bins or other statistical outputs.',
+                            'kind':'observation','evidence_ids':[e['id']],'measurements':row_measures[:24]})
         return {'summary':'Computed analytical evidence is available below. Review the query results and verification ledger for exact values.',
                 'findings':findings,'limitations':['No causal inference was performed.','Review period coverage and missing values before making business decisions.'],
                 'next_steps':['Validate surprising segments against source records.','Investigate additional periods or candidate confounding factors.'],'generation':'computed'}
@@ -316,3 +374,6 @@ class InvestigationAgent:
                 if self.client and hasattr(self.client,'aio'):
                     try: await self.client.aio.aclose()
                     except Exception: pass  # Cleanup must not replace a valid investigation outcome.
+                elif self.client and hasattr(self.client,'aclose'):
+                    try: await self.client.aclose()
+                    except Exception: pass

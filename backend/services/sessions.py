@@ -2,6 +2,7 @@ import time
 import uuid
 from dataclasses import dataclass, field
 from typing import Any
+from backend.services.models import default_model
 
 
 def new_id():
@@ -38,7 +39,8 @@ def cleanup():
 
 def create_investigation(request):
     state = {'id': new_id(), 'dataset_id':request.dataset_id, 'question':request.question,
-             'image_id':request.image_id,'image_context':None,'mode':request.mode,'status':'queued',
+             'image_id':request.image_id,'image_context':None,'mode':request.mode,
+             'model':(request.model or default_model()) if request.mode=='agent' else None,'status':'queued',
              'plan':[],'events':[],'evidence':[],'findings':[],'charts':[],'report':None,'errors':[],'created':time.time(),
              'accessed':time.time(),'stop_reason':None}
     investigations[state['id']] = state

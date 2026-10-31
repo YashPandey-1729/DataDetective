@@ -16,19 +16,25 @@ def main():
     parser=argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--mode',choices=['offline','agent'],default='offline')
     parser.add_argument('--format',choices=['csv','xlsx'],default='csv')
+    parser.add_argument('--model',help='Optional model ID from /api/health; used only in agent mode.')
+    parser.add_argument('--base-url',default='http://127.0.0.1:8000',help='Backend URL for an isolated demo server.')
     args=parser.parse_args()
-    with httpx.Client(base_url='http://127.0.0.1:8000',timeout=30) as client:
+    with httpx.Client(base_url=args.base_url,timeout=30) as client:
         def call(method,path,**kwargs):
             response=client.request(method,path,**kwargs)
             response.raise_for_status()
             return response.json()
         health=call('GET','/api/health')
-        if args.mode=='agent' and not health['ai_configured']:
-            raise SystemExit('Gemini is not configured. Set GEMINI_API_KEY in .env and restart FastAPI, or use --mode offline.')
+        if args.mode=='agent':
+            selected=next((model for model in health.get('models',[]) if model['id']==(args.model or health['model'])),None)
+            if selected and selected.get('available') is False:
+                raise SystemExit(selected.get('reason') or 'The selected AI model is not ready. Complete setup and reconnect.')
+            if not health['ai_configured']:
+                raise SystemExit('Configure cloud Gemini or start local Ollama and download Gemma, or use --mode offline.')
         filename='retail_sales.'+args.format
         dataset=call('POST','/api/datasets',files={'file':(filename,(ROOT/filename).read_bytes())})
         image=call('POST','/api/images',files={'file':('revenue_decline.png',(ROOT/'revenue_decline.png').read_bytes(),'image/png')})
-        state=call('POST','/api/investigations',json={'dataset_id':dataset['id'],'image_id':image['id'],'mode':args.mode,
+        state=call('POST','/api/investigations',json={'dataset_id':dataset['id'],'image_id':image['id'],'mode':args.mode,'model':args.model,
             'question':'Why did revenue decline in February? Compare regions, then investigate categories and products in the region contributing most. Verify the numerical change.'})
         deadline=time.monotonic()+720
         while state['status'] in {'queued','running'} and time.monotonic()<deadline:
@@ -52,10 +58,12 @@ def main():
                 assert abs(categories[row['Category']]['delta']-row['delta'])<.01
             assert state['image_context'] is None, 'Offline mode must not pretend to interpret images.'
         else:
-            assert state['image_context'], 'Live Gemini image interpretation did not complete.'
+            assert state['image_context'], 'The selected model did not complete image interpretation.'
+            if args.model:
+                assert state['model']==args.model, 'The investigation did not use the requested model.'
         report=client.get(f'/api/investigations/{state["id"]}/report');report.raise_for_status()
         (ROOT/'latest_checked_report.md').write_text(report.text,encoding='utf-8')
-        print(json.dumps({'status':state['status'],'mode':args.mode,'investigation_id':state['id'],
+        print(json.dumps({'status':state['status'],'mode':args.mode,'model':state['model'],'investigation_id':state['id'],
             'tools':dict(counts),'charts':len(state['charts']),'verified_cells':state['report']['verified_cells'],
             'report':'demo/latest_checked_report.md'},indent=2))
 

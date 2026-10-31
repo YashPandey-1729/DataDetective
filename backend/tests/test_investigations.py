@@ -59,6 +59,7 @@ def test_tool_failure_and_model_failure():
     agent=InvestigationAgent(state,client=object())
     result=asyncio.run(agent.execute(AgentAction(tool='execute_sql',explanation='Invalid query',args=ToolArgs(sql='DROP TABLE dataset'))))
     assert 'error' in result and state['events'][0]['status']=='failed' and not state['evidence']
+    assert agent.context(8)['failed_actions'][0]['args']['sql']=='DROP TABLE dataset'
     async def broken(*args): raise ValueError('bad model output')
     agent.generate=broken;asyncio.run(agent.run())
     assert state['status']=='failed' and state['report'] is None

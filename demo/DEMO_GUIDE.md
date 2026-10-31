@@ -16,6 +16,10 @@ For the agent presentation, configure `.env`, restart FastAPI, then run:
 
 That command makes real Gemini calls and may consume API quota. It checks image interpretation, multiple real queries, charts, recomputation, and report export. Run it before presenting; a configured key alone does not prove model access or sufficient quota. No live Gemini success is claimed until this passes with your key.
 
+For local Gemma, run `scripts/start_local_gemma.ps1 -Pull`, restart FastAPI, click **Reconnect**, and choose **Gemma 4 · Local (Ollama)** in **AI model**. Run the preflight with `--mode agent --model ollama:gemma4:e4b`. No Google API key is needed. Download the model before presenting; speed and investigation quality depend on local hardware. Reports record the selected model. Hosted Gemma is no longer offered.
+
+For the validated small local example, upload `gemma_regions.csv` and attach `gemma_regions.png`, then ask: **Compare total revenue by region, then drill into products in the region highlighted in the chart. Generate a bar chart and verify a total.** Expected region totals: North 100, East 70, West 30. The chart highlights West; its products are B 20 and A 10. Two live runs completed in about 13 seconds after warmup, with an explicitly labeled computed report because Gemma omitted valid report measurements. The complex monthly retail preflight above remains unreliable with local E4B; use the validated cloud Gemini route for that presentation.
+
 ## Two-minute presentation
 
 1. **Connect:** Load the retail sample or upload the full `retail_sales.csv`. Show row count, detected schema, and data completeness.

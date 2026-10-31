@@ -83,20 +83,35 @@ def test_premature_finish_is_not_completed(monkeypatch):
 
 
 @pytest.mark.parametrize('lowest',['West','East'])
-def test_multimodal_adaptive_sdk_api_e2e(monkeypatch,lowest):
+@pytest.mark.parametrize('model',['gemini-3.5-flash-lite','ollama:gemma4:e4b'])
+def test_multimodal_adaptive_sdk_api_e2e(monkeypatch,lowest,model):
     real_client=genai.Client
-    planner_requests=[];followups=[]
+    local=model.startswith('ollama:')
+    planner_requests=[];followups=[];report_throttled=False
     def response(request):
+        nonlocal report_throttled
         body=json.loads(request.content)
-        has_image=any('inlineData' in p for c in body['contents'] for p in c['parts'])
+        if local:
+            assert request.url.host=='127.0.0.1' and request.url.path=='/api/chat'
+            assert body['model']=='gemma4:e4b' and body['stream'] is False
+            assert 'authorization' not in request.headers and 'x-goog-api-key' not in request.headers
+            has_image=bool(body['messages'][-1].get('images'))
+            assert body['format']['title'] in {'ImageContext','AgentAction','AgentReport'}
+        else:
+            assert request.url.path.endswith(f'/models/{model}:generateContent')
+            has_image=any('inlineData' in p for c in body['contents'] for p in c['parts'])
         if has_image:
             payload={'chart_type':'bar','axes':['Region','Revenue'],'metrics':['Revenue'],'categories':['West','East'],
                 'time_periods':[],'highlighted_regions':[lowest],'visible_patterns':['One region has lower revenue.'],
                 'matching_columns':['Revenue','Region'],'ambiguities':[]}
         else:
-            context=json.loads(body['contents'][0]['parts'][0]['text']);planner_requests.append(context)
+            context=json.loads(body['messages'][-1]['content'] if local else body['contents'][0]['parts'][0]['text']);planner_requests.append(context)
             queries=[e for e in context['observations'] if e['tool']=='execute_sql']
             if context.get('instruction'):
+                if not local and not report_throttled:
+                    report_throttled=True
+                    return httpx.Response(429,json={'error':{'code':429,'message':'Temporary rate limit.',
+                        'details':[{'@type':'type.googleapis.com/google.rpc.RetryInfo','retryDelay':'0s'}]}})
                 src=queries[-1];value=src['result']['rows'][0]['total']
                 payload={'summary':'The lower region warrants follow-up; the data establishes a difference, not its cause.',
                     'findings':[{'claim':'Regional contribution was computed from the uploaded workbook.','kind':'observation',
@@ -115,18 +130,28 @@ def test_multimodal_adaptive_sdk_api_e2e(monkeypatch,lowest):
                 elif not any(e['tool']=='verify_finding' for e in context['observations']):
                     payload=action('verify_finding','Recompute the follow-up result.',evidence_id=queries[-1]['id'],row=0,field='total',expected=queries[-1]['result']['rows'][0]['total'],claim='Regional total')
                 else: payload=action('finish','The numerical comparison is supported.')
-        return httpx.Response(200,json={'candidates':[{'content':{'role':'model','parts':[{'text':json.dumps(payload)}]},'finishReason':'STOP'}]})
+        if local:
+            return httpx.Response(200,json={'model':'gemma4:e4b','done':True,'done_reason':'stop','message':{'content':json.dumps(payload)}})
+        parts=[{'text':json.dumps(payload)}]
+        return httpx.Response(200,json={'candidates':[{'content':{'role':'model','parts':parts},'finishReason':'STOP'}]})
     def client_factory(**kwargs):
         return real_client(api_key='mock-key',http_options=types.HttpOptions(async_client_args={'transport':httpx.MockTransport(response)}))
-    monkeypatch.setattr('backend.agent.investigator.genai.Client',client_factory)
-    monkeypatch.setenv('GEMINI_API_KEY','mock-key')
+    if local:
+        def forbidden_google(**kwargs): raise AssertionError('Local Gemma must never create a Google client')
+        monkeypatch.setattr('backend.agent.investigator.genai.Client',forbidden_google)
+        monkeypatch.setattr('backend.services.ollama.create_client',lambda: httpx.AsyncClient(base_url='http://127.0.0.1:11434',transport=httpx.MockTransport(response)))
+        monkeypatch.setattr('backend.main.ollama_status',lambda: {'ready':True,'running':True,'message':None})
+        monkeypatch.delenv('GEMINI_API_KEY',raising=False)
+    else:
+        monkeypatch.setattr('backend.agent.investigator.genai.Client',client_factory)
+        monkeypatch.setenv('GEMINI_API_KEY','mock-key')
     frame=pd.DataFrame({'Region':['West','East'],'Revenue':[10,30] if lowest=='West' else [30,10]})
     workbook=io.BytesIO();frame.to_excel(workbook,index=False)
     image=io.BytesIO();Image.new('RGB',(50,50),'white').save(image,format='PNG')
     with TestClient(app) as c:
         dataset=c.post('/api/datasets',files={'file':('regions.xlsx',workbook.getvalue())}).json()
         chart=c.post('/api/images',files={'file':('regions.png',image.getvalue())}).json()
-        result=c.post('/api/investigations',json={'dataset_id':dataset['id'],'image_id':chart['id'],'mode':'agent','question':'Compare the highlighted revenue by region and investigate the lowest.'})
+        result=c.post('/api/investigations',json={'dataset_id':dataset['id'],'image_id':chart['id'],'mode':'agent','model':model,'question':'Compare the highlighted revenue by region and investigate the lowest.'})
         assert result.status_code==202,result.text
         id=result.json()['id']
         for _ in range(200):
@@ -134,13 +159,17 @@ def test_multimodal_adaptive_sdk_api_e2e(monkeypatch,lowest):
             if state['status'] not in {'queued','running'}: break
             time.sleep(.02)
         assert state['status']=='completed',state['errors']
+        assert state['model']==model
         assert followups==[lowest]
         assert state['report']['verified_cells']==1 and len(state['charts'])==1
         assert state['findings'][0]['measurements'][0]['value']==10
         assert state['findings'][0]['measurements'][0]['verification']=='verified'
+        assert local or (report_throttled and any('rate limit' in e['description'] for e in state['events']))
+        assert all(e['status']=='completed' for e in state['events'] if e['tool']=='report')
         assert planner_requests[0]['image_context']['highlighted_regions']==[lowest]
         assert 'highlighted revenue' in planner_requests[0]['question']
-        assert c.get('/api/investigations/'+id+'/report').status_code==200
+        exported=c.get('/api/investigations/'+id+'/report')
+        assert exported.status_code==200 and f'Model: {model}' in exported.text
 
 
 def test_streamed_request_limit_before_parser():
