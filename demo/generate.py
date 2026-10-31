@@ -27,6 +27,7 @@ def generate():
                         transaction+=1
     retail=pd.DataFrame(rows,columns=['Transaction ID','Date','Region','Product','Category','Quantity','Unit Price','Revenue'])
     retail.to_csv(ROOT/'retail_sales.csv',index=False)
+    retail.to_excel(ROOT/'retail_sales.xlsx',index=False)
     retail.head(300).to_excel(ROOT/'retail_preview.xlsx',index=False)
     monthly=retail.assign(Month=retail.Date.str[:7]).groupby('Month').Revenue.sum()
     jan=retail[retail.Date.str.startswith('2026-01')]; feb=retail[retail.Date.str.startswith('2026-02')]

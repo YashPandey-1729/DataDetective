@@ -29,9 +29,10 @@ class RequestLimitsMiddleware:
             while True:
                 message = await receive()
                 if message['type'] == 'http.disconnect': return
-                body.extend(message.get('body',b''))
-                if len(body) > limit:
+                chunk=message.get('body',b'')
+                if len(body) + len(chunk) > limit:
                     return await JSONResponse({'detail':'Request exceeds upload size limit.'}, status_code=413)(scope,receive,send)
+                body.extend(chunk)
                 if not message.get('more_body',False): break
             sent = False
             async def replay():

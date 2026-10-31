@@ -26,7 +26,11 @@ def validate_sql(sql: str) -> str:
         raise ValueError('Recursive queries are disabled.')
     forbidden = {'Insert','Update','Delete','Create','Drop','Command','Copy','Into','Attach','Pragma','Set','Use','Transaction','Merge'}
     ctes = {c.alias.lower() for c in tree.find_all(exp.CTE)}
+    if 'dataset' in ctes:
+        raise ValueError('A CTE cannot shadow the uploaded dataset table.')
     tables = list(tree.find_all(exp.Table))
+    if not any(isinstance(table.this,exp.Identifier) and table.name.lower()=='dataset' for table in tables):
+        raise ValueError('Analytical queries must reference the uploaded dataset table.')
     if len(tables) > 8:
         raise ValueError('Too many table references.')
     for node in tree.walk():

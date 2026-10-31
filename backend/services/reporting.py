@@ -27,7 +27,7 @@ def resolve_measurement(state, item):
         row = rows[row_index]
     actual = row.get(item['field'])
     expected = item.get('value')
-    if not numeric(actual) or not numeric(expected) or not math.isclose(actual, expected, rel_tol=1e-9, abs_tol=1e-7):
+    if not numeric(actual) or not numeric(expected) or not math.isclose(actual, expected, rel_tol=1e-9, abs_tol=1e-12):
         raise ValueError('Reported value does not match the evidence cell.')
     verified = any(e['tool'] == 'verify_finding' and e['result'].get('status') == 'verified'
                    and e['result'].get('evidence_id') == source['id']
@@ -55,7 +55,8 @@ def finalize_report(state, draft):
         if re.search(r'\d', claim):
             claim = 'Computed measurements from the cited evidence.' if measurements else 'Numerical interpretation withheld: no validated measurement was supplied.'
             warnings.append('Numerical prose was replaced with source-derived measurements.')
-        analytical = any(known[r]['tool'] in {'execute_sql','calculate_statistics'} for r in refs)
+        analytical = any(known[r]['tool'] in {'execute_sql','calculate_statistics'}
+                         and not ('before' in known[r]['result'] and 'after' in known[r]['result']) for r in refs)
         kind = item['kind'] if analytical else 'inconclusive'
         if (item.get('measurements') and not measurements) or claim.startswith('Numerical interpretation withheld'):
             kind = 'inconclusive'
@@ -66,7 +67,7 @@ def finalize_report(state, draft):
         summary = 'Review the computed findings below for numerical results. Interpretations remain descriptive and should be checked against their sources.'
         warnings.append('Numerical summary prose was withheld; exact values are shown in the computed findings.')
     verified = [e for e in state['evidence'] if e['tool'] == 'verify_finding' and e['result'].get('status') == 'verified']
-    limitations = list(dict.fromkeys(draft['limitations'] + [
+    limitations = list(dict.fromkeys([s for s in draft['limitations'] if not re.search(r'\d',s)] + [
         'Contributing segments are descriptive evidence, not proven causes.',
         'Report numbers come from exact referenced cells. Evidence links do not independently validate narrative interpretation.',
         'Recomputation checks query consistency, not source-data truth or correctness of metric definitions.',
@@ -81,6 +82,7 @@ def finalize_report(state, draft):
         limitations.append('Some evidence was truncated; charts use only the retained result rows.')
     state['findings'] = findings
     state['report'] = {**draft, 'summary': summary, 'findings': findings, 'limitations': limitations,
+                       'next_steps':[s for s in draft['next_steps'] if not re.search(r'\d',s)],
                        'warnings': list(dict.fromkeys(warnings)), 'verified_cells': len(verified),
                        'generation': draft.get('generation', 'model')}
 

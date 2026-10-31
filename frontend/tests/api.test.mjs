@@ -2,9 +2,16 @@ import test, {afterEach} from 'node:test';
 import assert from 'node:assert/strict';
 import {api, ApiError, upload} from '../src/api.ts';
 import {validateUpload} from '../src/uploadValidation.ts';
+import {formatNumber} from '../src/formatNumber.ts';
 
 const originalFetch = globalThis.fetch;
 afterEach(() => {globalThis.fetch = originalFetch;});
+
+test('small nonzero measurements are never displayed as a verified zero', () => {
+  assert.match(formatNumber(1e-7), /e-7/);
+  assert.notEqual(formatNumber(-1e-12), '0');
+  assert.equal(formatNumber(Infinity), 'Unavailable');
+});
 
 test('returns a typed expired-session error so polling can stop instead of locking the UI', async () => {
   globalThis.fetch = async () => Response.json({detail:'Investigation not found or expired.'}, {status:404});

@@ -121,15 +121,19 @@ class InvestigationAgent:
                 'context_note':'Text and lists are bounded. Use aggregation tools rather than assuming omitted values. Full retained evidence is available to the user.'}
         # Profile evidence repeats schema and may contain enormous uploaded text cells.
         for observation in context['observations']:
-            if observation['tool']=='profile_dataset': observation['result']=schema
+            if observation['tool']=='profile_dataset': observation['result']={'note':'Full schema is provided in the top-level schema field.'}
         if len(json.dumps(context,default=str)) > 100_000:
             for observation in observations:
                 if isinstance(observation['result'],dict) and 'rows' in observation['result']:
                     observation['result']={**observation['result'],'rows':[], 'context_truncated':True}
+        if len(json.dumps(context,default=str)) > 100_000:
+            for observation in observations:
+                observation['result']={'context_truncated':True,'note':'Result exceeds planner context budget; aggregate or select fewer columns.'}
         return context
 
     def analytical_evidence(self):
-        return [e for e in self.state['evidence'] if e['tool'] in {'execute_sql','calculate_statistics'}]
+        return [e for e in self.state['evidence'] if e['tool'] in {'execute_sql','calculate_statistics'}
+                and not ('before' in e['result'] and 'after' in e['result'])]
 
     def numeric_sql_cell(self):
         for e in self.state['evidence']:
@@ -200,7 +204,7 @@ class InvestigationAgent:
                 if tool_failures>=3:
                     self.state['stop_reason']='tool_failure_limit'
                     break
-        if not any(e['tool'] in {'execute_sql','calculate_statistics'} for e in self.state['evidence']):
+        if not self.analytical_evidence():
             raise RuntimeError('No analytical tools completed successfully. Check Gemini access and retry, or use offline analytics.')
         await self.ensure_artifacts()
         event(self.state,'report','Compile findings with evidence references and explicit limitations.')
@@ -210,6 +214,9 @@ class InvestigationAgent:
             self.state['errors'].append('Model report unavailable; a computed evidence summary was generated instead.')
             draft=self.fallback_report()
         finalize_report(self.state,draft)
+        if not any(f.get('measurements') for f in self.state['findings']) and self.numeric_sql_cell():
+            self.state['errors'].append('Model report supplied no valid numeric measurements; showing a computed evidence summary.')
+            finalize_report(self.state,self.fallback_report())
         self.state['events'][-1]['status']='completed'
 
     def fallback_report(self):
@@ -236,7 +243,7 @@ class InvestigationAgent:
         s['plan']=['Profile data quality','Compute a temporal or categorical summary','Compare contributing segments','Check outlier candidates','Recompute a numeric result','Build charts and report']
         if s['image_id']:
             event(s,'inspect_image','Offline mode cannot interpret images; chart context is omitted.','skipped')
-        metrics=[m for m in p['metrics'] if not any(t in m.lower() for t in [' id','_id','transaction'])]
+        metrics=[m for m in p['metrics'] if not any(t in m.lower() for t in [' id','_id','transaction']) and self.dataset.df[m].notna().any()]
         if not metrics:
             raise RuntimeError('Offline analytics requires at least one numeric column.')
         metric=next((m for m in metrics if m.lower()=='revenue'),metrics[0])
@@ -249,24 +256,31 @@ class InvestigationAgent:
             entry=await sql(f"SELECT date_trunc('month', {date}) AS period, SUM({m}) AS total FROM dataset GROUP BY 1 ORDER BY 1",'Offline rule: aggregate the selected metric by calendar month.')
             if 'error' not in entry:
                 await self.execute(AgentAction(tool='generate_chart',explanation='Plot the actual monthly totals.',args=ToolArgs(evidence_id=entry['id'],chart_type='line',x='period',y='total',title=metric+' over time')))
-                change=await sql(f"WITH monthly AS (SELECT date_trunc('month',{date}) AS period,SUM({m}) AS total FROM dataset GROUP BY 1), compared AS (SELECT period,total,LAG(total) OVER (ORDER BY period) AS previous FROM monthly) SELECT period,previous,total,total-previous AS delta,100.0*(total-previous)/NULLIF(ABS(previous),0) AS pct_change FROM compared WHERE previous IS NOT NULL ORDER BY delta LIMIT 1",'Offline rule: find the largest observed month-to-month decrease or smallest increase.')
+                change=await sql(f"WITH monthly AS (SELECT date_trunc('month',{date}) AS period,SUM({m}) AS total FROM dataset WHERE {date} IS NOT NULL GROUP BY 1), compared AS (SELECT period,total,LAG(total) OVER (ORDER BY period) AS previous,LAG(period) OVER (ORDER BY period) AS previous_period FROM monthly) SELECT period,previous_period,previous,total,total-previous AS delta,100.0*(total-previous)/NULLIF(ABS(previous),0) AS pct_change FROM compared WHERE previous IS NOT NULL ORDER BY delta LIMIT 1",'Offline rule: compare adjacent observed months; missing calendar months are not assumed to be zero.')
                 if 'error' not in change and change['result']['rows']:
                     r=change['result']['rows'][0]
                     await self.execute(AgentAction(tool='verify_finding',explanation='Recompute the selected monthly change.',args=ToolArgs(evidence_id=change['id'],row=0,field='delta',expected=r['delta'],claim='Monthly total difference')))
                     if dims:
-                        d=q(dims[0]); period=r['period'][:10]
-                        segment=await sql(f"SELECT {d} AS segment,SUM(CASE WHEN date_trunc('month',{date})=DATE '{period}' THEN {m} ELSE 0 END) AS current_total,SUM(CASE WHEN date_trunc('month',{date})=DATE '{period}' - INTERVAL '1 month' THEN {m} ELSE 0 END) AS previous_total,current_total-previous_total AS delta FROM dataset GROUP BY 1 ORDER BY delta",'Offline rule: compare segment contributions in the selected period.')
+                        d=q(dims[0]); period=r['period'][:10]; previous_period=r['previous_period'][:10]
+                        segment=await sql(f"SELECT {d} AS segment,SUM(CASE WHEN date_trunc('month',{date})=DATE '{period}' THEN {m} ELSE 0 END) AS current_total,SUM(CASE WHEN date_trunc('month',{date})=DATE '{previous_period}' THEN {m} ELSE 0 END) AS previous_total,current_total-previous_total AS delta FROM dataset GROUP BY 1 ORDER BY delta",'Offline rule: compare segment contributions across the same observed periods.')
                         if 'error' not in segment and segment['result']['rows']:
                             await self.execute(AgentAction(tool='generate_chart',explanation='Show the computed segment differences.',args=ToolArgs(evidence_id=segment['id'],chart_type='bar',x='segment',y='delta',title='Contribution to monthly change')))
                             if len(dims)>1:
-                                worst=str(segment['result']['rows'][0]['segment']).replace("'","''")
-                                await sql(f"SELECT {q(dims[1])} AS category,SUM(CASE WHEN date_trunc('month',{date})=DATE '{period}' THEN {m} ELSE 0 END) AS current_total,SUM(CASE WHEN date_trunc('month',{date})=DATE '{period}' - INTERVAL '1 month' THEN {m} ELSE 0 END) AS previous_total,current_total-previous_total AS delta FROM dataset WHERE CAST({d} AS VARCHAR)='{worst}' GROUP BY 1 ORDER BY delta",'Offline rule: drill into the segment with the lowest computed change.')
+                                worst_value=segment['result']['rows'][0]['segment']
+                                worst=str(worst_value).replace("'","''")
+                                condition=f'{d} IS NULL' if worst_value is None else f"CAST({d} AS VARCHAR)='{worst}'"
+                                next_dimension=min(dims[1:], key=lambda name:next(c['unique'] for c in p['columns'] if c['name']==name))
+                                await sql(f"SELECT {q(next_dimension)} AS category,SUM(CASE WHEN date_trunc('month',{date})=DATE '{period}' THEN {m} ELSE 0 END) AS current_total,SUM(CASE WHEN date_trunc('month',{date})=DATE '{previous_period}' THEN {m} ELSE 0 END) AS previous_total,current_total-previous_total AS delta FROM dataset WHERE {condition} GROUP BY 1 ORDER BY delta",'Offline rule: drill into the segment with the lowest computed change using the next compact dimension.')
         elif dims:
             entry=await sql(f'SELECT {q(dims[0])} AS segment,COUNT(*) AS records,AVG({q(metric)}) AS mean,SUM({q(metric)}) AS total FROM dataset GROUP BY 1 ORDER BY total DESC','Offline rule: compare the selected metric by category.')
             if 'error' not in entry:
                 await self.execute(AgentAction(tool='generate_chart',explanation='Visualize actual category totals.',args=ToolArgs(evidence_id=entry['id'],chart_type='bar',x='segment',y='total',title=metric+' by '+dims[0])))
                 if entry['result']['rows']:
                     await self.execute(AgentAction(tool='verify_finding',explanation='Recompute the leading category total.',args=ToolArgs(evidence_id=entry['id'],row=0,field='total',expected=entry['result']['rows'][0]['total'],claim='Leading category total')))
+        if not p['dates'] and not dims:
+            sampled=await sql(f'SELECT {q(metric)} FROM dataset WHERE {q(metric)} IS NOT NULL LIMIT 200','Offline rule: sample up to the first two hundred metric values for a distribution chart.')
+            if 'error' not in sampled:
+                await self.execute(AgentAction(tool='generate_chart',explanation='Plot the retained metric sample, not the whole distribution.',args=ToolArgs(evidence_id=sampled['id'],chart_type='histogram',x=metric,title='Metric distribution · first 200 values')))
         await self.execute(AgentAction(tool='calculate_statistics',explanation='Compute a numerical distribution summary.',args=ToolArgs(operation='summary',column=metric)))
         await self.execute(AgentAction(tool='calculate_statistics',explanation='Flag outlier candidates using the IQR rule.',args=ToolArgs(operation='outliers',column=metric)))
         draft=self.fallback_report()

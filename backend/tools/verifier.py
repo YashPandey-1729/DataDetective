@@ -7,7 +7,7 @@ def _finite_number(value):
 
 def _same(left, right):
     if _finite_number(left) and _finite_number(right):
-        return math.isclose(left, right, rel_tol=1e-8, abs_tol=1e-6)
+        return math.isclose(left, right, rel_tol=1e-9, abs_tol=1e-12)
     return type(left) is type(right) and left == right
 
 

@@ -1,5 +1,30 @@
 # Validation record
 
+## Takeover validation — current checkout
+
+Validated on 2026-10-31, Asia/Calcutta. The prior initial-build record is retained below as history.
+
+| Check | Actual result |
+| --- | --- |
+| Backend regression suite | **71 passed**, one third-party Starlette deprecation warning, 10.95 seconds |
+| Frontend `npm test` | **8 passed** using Node's built-in runner; request failures, cancellation, timeouts, multipart contents, file checks and tiny-number formatting |
+| Frontend `npm run build` | TypeScript and Vite passed; 1,601 modules; lazy Plotly chunk size warning remains |
+| Python compilation / dependency check | Passed; no broken requirements |
+| Full multimodal adaptive SDK/API integration | Real XLSX + PNG uploads, actual analytical execution, chart and verification; mocked SDK transport; both flipped-region cases passed |
+| SQL timeout | An actual expensive cross-join aggregation was interrupted by the watchdog; regression passed |
+| Shutdown cancellation | Server lifespan cancelled a running job and left a failed/cancelled state, not a stuck job |
+| Local CSV + image preflight | Completed through HTTP with four SQL queries, two charts, one recomputed cell, independent expected-result checks and Markdown export |
+| Local full XLSX + image preflight | Same complete workflow and expected values as CSV |
+| Browser sample workflow | Loaded retail, ran offline analytics, saw charts, measured cells with labels, verification and report; source links opened their SQL details; console had no errors |
+| Browser responsive check | Mobile navigation visible; page scroll width and client width both 375 CSS px at a 390 × 844 outer viewport; override reset |
+| New screenshots | `demo/takeover-dashboard.jpg`, `demo/takeover-results.jpg` |
+| Browser file-picker automation | Attempt failed in the browser tool; do not count it as a successful current upload smoke test. Real multipart upload paths passed API tests and local HTTP preflights |
+| Live Gemini model and vision | **Not run** — no key in environment or root `.env`; no live AI success is claimed |
+
+The restricted Windows sandbox hangs during asyncio's local socketpair creation before app code executes. Reviewed local test/server runs outside that restriction completed; the suite uses synthetic data and mocked Gemini transport. No OS security settings were changed. See AUDIT.md for concrete findings and fixes, and demo/DEMO_GUIDE.md for the presentation/preflight workflow.
+
+## Initial implementation record (historical)
+
 Completed locally on 2026-10-31 (user timezone: Asia/Calcutta).
 
 | Check | Actual result |

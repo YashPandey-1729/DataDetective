@@ -6,6 +6,8 @@ A local multimodal data investigation workspace built for the **Applied AI & Nex
 
 The problem: dashboards show changes, but finding the contributing segments usually takes repeated manual queries. DataDetective gives an AI model a small, validated analytical toolbox and feeds every observation back into its next decision.
 
+For the takeover review see [AUDIT.md](AUDIT.md), current test evidence in [VALIDATION.md](VALIDATION.md), and the presentation/preflight instructions in [demo/DEMO_GUIDE.md](demo/DEMO_GUIDE.md). With the backend running, `python demo/check_demo.py --mode offline --format csv` (or `--format xlsx`) checks the actual upload-to-report workflow against independent synthetic ground truth. `--mode agent` performs live Gemini calls only after you configure a key.
+
 ## Features
 
 - CSV / XLSX / XLS upload, preview, type detection, date coverage, missing values, duplicates, and numeric summaries.
@@ -20,7 +22,7 @@ The problem: dashboards show changes, but finding the contributing segments usua
 
 ## Local setup (Windows PowerShell)
 
-Requirements: Python **3.13** (tested), Node **22+**, npm, and an optional Gemini API key. No database server is needed. Execute from `C:\Users\hp\Desktop\DataDetective`.
+Requirements: Python **3.13** (tested), Node **22.6+** (Node 25 tested; frontend tests use built-in TypeScript stripping), npm, and an optional Gemini API key. No database server is needed. Execute from `C:\Users\hp\Desktop\DataDetective`.
 
 ```powershell
 python -m venv .venv
@@ -89,11 +91,11 @@ Question + dataset profile + optional structured vision context
 
 The model can invoke `profile_dataset`, `execute_sql`, `calculate_statistics`, `inspect_image`, `generate_chart`, and `verify_finding`. `finish` ends the analytical loop. An initial profile and optional image interpretation happen before the adaptive loop. The model's subsequent analytical steps are chosen from actual observations; its public explanation is shown in the timeline. Internal chain-of-thought is neither requested nor displayed.
 
-Default budget: eight analytical calls (configurable 2–12), plus initial vision, profile, and final report. Model requests have a 50-second outer timeout, two model failures stop the loop, and three tool failures end exploration. Only two investigations run concurrently and four may be active/queued. No analytical success means a failed investigation, never invented results. If report generation fails after valid analytics, a transparent computed summary is used.
+Default budget: eight model-selected steps (configurable 2–12), plus initial vision, profile, final report, and at most two transparent artifact-finalization calls. Finish requires at least two distinct successful dataset analytical actions, a chart and a numerical verification when numeric SQL evidence exists. If the model omits artifacts, system finalization can chart and recompute existing evidence; those events are explicitly labeled and never introduce a fixed analytical query sequence. Resource-limited work is returned as `partial`, not complete. Model requests have a 50-second outer timeout, two model failures stop the loop, and three tool failures end exploration. Only two investigations run concurrently and four may be active/queued. No analytical success means a failed investigation, never invented results. If report generation fails or supplies no valid numerical measurements after valid analytics, a computed summary is used.
 
-SQL evidence has at most 200 rows; the model sees at most 35 rows per observation, explicitly marked when omitted. All evidence is inspectable in the UI. Charts use the retained tool result rather than regenerated model data.
+SQL evidence has at most 200 rows. Planner context bounds cell text, rows, and total prompt size; truncation is disclosed. Full retained evidence is inspectable in the UI. Charts use the retained tool result rather than regenerated model data.
 
-**Verification scope:** a numerical verification re-executes the source SQL and compares one selected cell with both its original value and the model's expected value. The ledger stores the SQL, source ID, cell, expected/actual values, and result. This verifies that cell only. Evidence-linked narrative findings and hypotheses are not automatically marked verified. Segment contributions are not proven causes.
+**Verification scope:** model reports provide typed measurements (`evidence_id`, `row`, `field`, `value`). The server resolves every displayed report number against an actual SQL/statistical cell, attaches source-row labels, and rejects mismatched values. Digits in model numerical prose are withheld in favor of computed measurements. Numeric-free prose is still interpretation and may be wrong. Values supplied by the model to the percentage-change helper cannot become dataset-backed findings. Numerical verification re-executes source SQL and matches the result row by its other fields, rather than assuming stable row order. Ambiguous matches remain inconclusive. The ledger stores SQL, source ID, cell, expected/actual values, and status. This verifies consistency of that cell only. Segment contributions are not proven causes, and SQL metric definitions still need review.
 
 ## Multimodal behavior
 
@@ -126,6 +128,7 @@ frontend/                      Developer 2
 demo/
   generate.py                  Seeded synthetic generator
   retail_sales.csv             5,292 records
+  retail_sales.xlsx            Same full dataset in Excel format
   retail_preview.xlsx          300-row Excel loading sample (not the full demo)
   revenue_decline.png          Chart screenshot for multimodal investigation
   expected_findings.json       Pandas-computed ground truth
@@ -164,6 +167,7 @@ Independent expected results (never passed to the planner): January revenue **63
 .\.venv\Scripts\python -m pytest backend\tests -q
 .\.venv\Scripts\python -m compileall -q backend demo
 cd frontend
+npm test
 npm run build
 ```
 
@@ -172,8 +176,8 @@ Tests cover CSV/Excel ingestion, malformed files, inferred types, missing values
 ## Reliability, security and limitations
 
 - Local, single-process hackathon prototype, not a public multi-tenant service. No authentication. Bind to loopback. Session IDs are random but are not an authentication mechanism.
-- In-memory storage, no uploaded file paths. Raw filenames are reduced to a display basename. Two-hour expiry is enforced during API access; restart clears all data. Limits: 12 datasets, 20 images, 40 investigations, 15 MB data uploads, 5 MB images, 150,000 rows, 100 columns. XLSX expanded content is limited to 60 MB. Workbook parsing uses the first worksheet.
-- SQL parsing uses `sqlglot` plus an explicit function and table allowlist, one SELECT, no recursion, at most eight table references, and no external table functions. Each execution uses an isolated DuckDB connection, 256 MB engine memory, two threads, a four-second interrupt, no extension auto-install/load, external access disabled, and locked configuration. These limits are defense in depth, not an OS sandbox for hostile public use. DuckDB temporary-directory spill is unavailable with external access disabled; oversized work fails.
+- In-memory storage, no uploaded file paths. Raw filenames are reduced to a display basename. Inactive sessions expire after two hours; active jobs pin their dataset and image references, and shutdown cancels queued/running work. Limits: 12 datasets, 20 images, 40 investigations, 15 MB data uploads, 5 MB images, 150,000 rows, 100 columns. Request bodies are bounded before multipart parsing/spooling, and at most two uploads are processed concurrently. XLSX expanded content is limited to 60 MB. Workbook parsing uses the first worksheet. Duplicate or blank headers, ragged CSV records, and infinite numeric inputs are rejected explicitly.
+- SQL parsing uses `sqlglot` plus an explicit function and table allowlist, one SELECT referencing the uploaded dataset, no recursion or dataset-shadowing CTEs, at most eight table references, and no external table functions. Each execution uses an isolated DuckDB connection, 256 MB engine memory, two threads, a four-second watchdog covering setup and execution, no extension auto-install/load, external access disabled, an empty spill directory and locked configuration. These limits are defense in depth, not an OS sandbox for hostile public use. Query interruption is tested against real expensive computation.
 - Data and image text are untrusted and explicitly separated from system instructions. No arbitrary Python, shell commands, executable JavaScript chart specs, or model-generated HTML is executed. React escapes text.
 - Only actual numeric SQL cells can get a verified status. Rerunning a query verifies consistency, not correctness of metric definitions, data truth, causality, or every word of a claim. Model narrative can still be wrong; inspect sources.
 - Date inference recognizes ISO date strings. Ambiguous locale formats stay categorical. Missing values are not silently imputed. Correlation is descriptive and includes assumptions. IQR flags need human interpretation.
