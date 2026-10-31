@@ -1,5 +1,10 @@
 # Validation record
 
+## Partial-result recovery guidance — 2026-10-31
+
+- Replaced the generic resource-limit banner with the actual stop reason and a suggested next step for repeated actions, step exhaustion, tool failures, model unavailability, and interruption. Partial results remain explicitly incomplete; missing or unknown reasons receive generic guidance. Active, successful and failed investigations do not receive this partial-result notice.
+- Frontend regression suite: **18 passed**. TypeScript and Vite production build passed; the existing lazy Plotly chunk-size warning remains. No new packages, model downloads or live AI calls were needed. Backend behavior is unchanged.
+
 ## Repeated analytical action guard — 2026-10-31
 
 - Identical successful SQL/statistics requests reuse their existing evidence instead of executing again. Skips are visible in the timeline and sent back to the planner with the evidence ID. Failed actions remain retryable; SQL text is matched exactly so differences inside string literals remain meaningful.

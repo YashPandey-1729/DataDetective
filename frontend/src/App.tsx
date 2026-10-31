@@ -3,6 +3,7 @@ import {Activity, ArrowDownToLine, ArrowRight, ArrowUpRight, BarChart3, CheckCir
 import {api, ApiError, upload} from './api';
 import {validateUpload} from './uploadValidation';
 import {formatNumber} from './formatNumber';
+import {investigationNotice} from './investigationNotice';
 import type {Dataset, Investigation, ModelOption} from './types';
 import FileUploader from './components/FileUploader';
 import DatasetPreview from './components/DatasetPreview';
@@ -104,6 +105,7 @@ export default function App() {
   function navigate(next: string) {setSection(next); document.getElementById(next === 'report' ? 'report' : next === 'results' ? 'results' : 'workspace')?.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',block:'start'});}
   function reset() {if (locked) return; clearImage();setDataset(null);setInvestigation(null);setQuestion(examples[0]);setSection('workspace');setError('');setPollError('');setPollPaused(false);navigate('workspace');}
   const p = dataset?.profile;
+  const partialNotice = investigationNotice(investigation);
   const verified = investigation?.evidence.filter(e => e.tool === 'verify_finding' && e.result.status === 'verified') || [];
   const anomalies = investigation?.evidence.find(e => e.tool === 'calculate_statistics' && e.result.method);
   return <div className="app-shell">
@@ -125,7 +127,7 @@ export default function App() {
       {dataset && <><DatasetPreview dataset={dataset}/><StatisticsWorkbench key={dataset.id} dataset={dataset} disabled={locked}/></>}
       <section id="results" className="results-section"><div className="section-title"><div><span className="eyebrow">03 / DISCOVER</span><h2>Evidence, connected.</h2></div><span className="pill">{investigation?.mode === 'offline' ? 'Deterministic offline analysis' : 'Computed from your data'}</span></div>
       {!investigation ? <div className="results-placeholder"><div><BarChart3 size={24}/><h3>There’s a story in your data.</h3><p>Start an investigation to uncover trends, contributing segments, and unexpected patterns.</p></div><div className="ghost-chart" aria-hidden="true">{[25,38,30,60,50,75,56,89,68,92,79,100].map((h,i) => <i key={i} style={{height:h+'%'}}/>)}</div></div> : <>
-      {investigation.status === 'partial' && <div className="partial-banner" role="status"><CircleHelp size={17}/><span>The investigation reached a resource limit. Available evidence is shown below; review its limitations before drawing conclusions.</span></div>}
+      {partialNotice && <div className="partial-banner" role="status"><CircleHelp size={17}/><span><strong>{partialNotice.reason}</strong> Available results are incomplete. {partialNotice.nextStep}</span></div>}
       {investigation.mode === 'offline' && <p className="offline-label"><FlaskConical size={15}/>Offline analytics demo · Real computation, deterministic decisions · No LLM conclusions</p>}
       {investigation.status === 'failed' && <div className="error-banner"><AlertCircle size={18}/><span>{investigation.errors.at(-1)}</span><button className="text-button" onClick={() => void start()} disabled={locked}>Retry <ArrowRight size={14}/></button></div>}
       <div className="charts-grid">{investigation.charts.map((c,i) => <ChartViewer key={i} chart={c}/>)}</div>
